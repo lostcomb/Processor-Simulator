@@ -1,0 +1,39 @@
+This is a basic RISC instruction set.
+
+Arithmetic:
+
+  ADD Rd, Ri, Rj  -- Add two signed integers.
+  SUB Rd, Ri, Rj  -- Subtract two signed integers.
+  MUL Rd, Ri, Rj  -- Multiply two signed integers.
+  DIV Rd, Ri, Rj  -- Divide two signed integers.
+
+Logic:
+
+  AND Rd, Ri, Rj  -- Bit-wise AND two signed integers.
+  OR  Rd, Ri, Rj  -- Bit-wise OR two signed integers.
+  XOR Rd, Ri, Rj  -- Bit-wise XOR two signed integers.
+  NOT Rd, Ri, Rj  -- Bit-wise NOT two signed integers.
+
+Control FLow:
+
+  JMP Ro          -- Unconditional jump to PC + Ro.
+  BEQ Ro, Ri, Rj  -- Branch to PC + Ro if Ri == Rj.
+  BGT Ro, Ri, Rj  -- Branch to PC + Ro if Ri > Rj.
+  BEZ Ro, Ri      -- Branch to PC + Ro if Ri == 0.
+
+Load/Store:
+
+  LDC Rd, #C      -- Load constant C into Rd.
+  LDM Rd, MEM[Ri] -- Load word at memory location Ri into Rd.
+  STM MEM[Ri], Rj -- Store word in Rj to memory location Ri.
+
+Misc:
+
+  NOP             -- No operation.
+
+Where:
+  Rd     = Destination Register,
+  Ri, Rj = Operand Registers,
+  Ro     = Offset Register,
+  C      = Constant,
+  MEM    = Memory
