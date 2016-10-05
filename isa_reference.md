@@ -32,6 +32,7 @@ Misc:
   * **NOP**             `0000 0000 0000 0000 0000 0000 0000 0000` No operation.
 
 Where:
+
   * *Rd*     = Destination Register,
   * *Ri, Rj* = Operand Registers,
   * *C*      = Constant,
