@@ -8,11 +8,12 @@ module Instruction
   , Instruction(..)
   ) where
 
+import Data.Word
 import Data.Either
 
 type Label    = String
-type Constant = Int
-type Register = Int
+type Constant = Word32
+type Register = Word32
 type Offset   = Either Constant Label
 
 data Instruction where

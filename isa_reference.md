@@ -53,8 +53,8 @@ Load/Store:
   * *LDM Rd, MEM[Ri]*
     * Binary representation: `1110 dddd iiii 0000 0000 0000 0000 0000`
     * Load word at memory location Ri into Rd.
-  * *STM MEM[Rd], Ri*
-    * Binary representation: `1111 dddd iiii 0000 0000 0000 0000 0000`
+  * *STM MEM[Ri], Rj*
+    * Binary representation: `1111 0000 iiii jjjj 0000 0000 0000 0000`
     * Store word in Rj to memory location Ri.
 
 Misc:
