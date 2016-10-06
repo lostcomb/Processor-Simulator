@@ -26,9 +26,9 @@ Logic:
   * *XOR Rd, Ri, Rj*
     * Binary representation: `0111 dddd iiii jjjj 0000 0000 0000 0000`
     * Bit-wise XOR two signed integers.
-  * *NOT Rd, Ri, Rj*
-    * Binary representation: `1000 dddd iiii jjjj 0000 0000 0000 0000`
-    * Bit-wise NOT two signed integers.
+  * *NOT Rd, Ri*
+    * Binary representation: `1000 dddd iiii 0000 0000 0000 0000 0000`
+    * Bit-wise NOT a signed integer.
 
 Control FLow:
 

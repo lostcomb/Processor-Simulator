@@ -5,7 +5,6 @@ module Assembly.Instruction
   , Constant
   , Register
   , Offset
-  , RegOffset
   , Instruction(..)
   ) where
 
@@ -16,7 +15,6 @@ type Label     = String
 type Constant  = Word32
 type Register  = Word32
 type Offset    = Either Constant Label
-type RegOffset = Either Register Label
 
 data Instruction where
   ADD   :: Register -> Register -> Register -> Instruction
@@ -26,8 +24,8 @@ data Instruction where
   AND   :: Register -> Register -> Register -> Instruction
   OR    :: Register -> Register -> Register -> Instruction
   XOR   :: Register -> Register -> Register -> Instruction
-  NOT   :: Register -> Register -> Register -> Instruction
-  JMP   :: RegOffset                        -> Instruction
+  NOT   :: Register -> Register             -> Instruction
+  JMP   :: Register                         -> Instruction
   BEQ   :: Offset   -> Register -> Register -> Instruction
   BGT   :: Offset   -> Register -> Register -> Instruction
   BEZ   :: Offset   -> Register             -> Instruction

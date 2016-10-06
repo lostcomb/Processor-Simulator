@@ -1,5 +1,6 @@
 module Assembler
   ( assemble
+  , assembleBinary
   ) where
 
 import Assembly.Instruction
@@ -10,11 +11,17 @@ import qualified Data.Map.Strict as Map
 
 type LabelMap = Map.Map Label Word32
 
-assemble :: [ Instruction ] -> [ Word32 ]
-assemble insts = instsToWord m . filter removeLabels $ insts
-  where m                      = findLabels insts
-        removeLabels (LABEL _) = False
-        removeLabels _         = True
+assemble :: [ Instruction ] -> [ Instruction ]
+assemble insts = map (replaceLabel m) . filter removeLabels $ insts
+  where m = findLabels insts
+
+assembleBinary :: [ Instruction ] -> [ Word32 ]
+assembleBinary insts = instsToWord m . filter removeLabels $ insts
+  where m = findLabels insts
+
+removeLabels :: Instruction -> Bool
+removeLabels (LABEL _) = False
+removeLabels _         = True
 
 findLabels :: [ Instruction ] -> LabelMap
 findLabels = fst . foldr updateMap (Map.empty, 0)
@@ -22,6 +29,12 @@ findLabels = fst . foldr updateMap (Map.empty, 0)
 updateMap :: Instruction -> (LabelMap, Word32) -> (LabelMap, Word32)
 updateMap (LABEL l) (m, pos) = (Map.insert l pos m, pos    )
 updateMap _         (m, pos) = (                 m, pos + 1)
+
+replaceLabel :: LabelMap -> Instruction -> Instruction
+replaceLabel m (BEQ (Right l) ri rj) = BEQ (Left $ labelToWord m l) ri rj
+replaceLabel m (BGT (Right l) ri rj) = BGT (Left $ labelToWord m l) ri rj
+replaceLabel m (BEZ (Right l) ri   ) = BEZ (Left $ labelToWord m l) ri
+replaceLabel _ i                     = i
 
 instsToWord :: LabelMap -> [ Instruction ] -> [ Word32 ]
 instsToWord m = map (instToWord m)
@@ -36,10 +49,9 @@ instToWord m (DIV rd         ri rj  ) = argsToWord 4  rd ri rj 0
 instToWord m (AND rd         ri rj  ) = argsToWord 5  rd ri rj 0
 instToWord m (OR  rd         ri rj  ) = argsToWord 6  rd ri rj 0
 instToWord m (XOR rd         ri rj  ) = argsToWord 7  rd ri rj 0
-instToWord m (NOT rd         ri rj  ) = argsToWord 8  rd ri rj 0
+instToWord m (NOT rd         ri     ) = argsToWord 8  rd ri 0  0
 -- Control Flow
-instToWord m (JMP (Left  ri)        ) = argsToWord 9  0  0  0  ri
-instToWord m (JMP (Right l )        ) = argsToWord 9  0  0  0  (labelToWord m l)
+instToWord m (JMP            ri     ) = argsToWord 9  0  0  0  ri
 instToWord m (BEQ (Left  c ) ri rj  ) = argsToWord 10 0  ri rj c
 instToWord m (BEQ (Right l ) ri rj  ) = argsToWord 10 0  ri rj (labelToWord m l)
 instToWord m (BGT (Left  c ) ri rj  ) = argsToWord 11 0  ri rj c

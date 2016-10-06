@@ -40,6 +40,7 @@ languageDef = emptyDef { Token.commentLine   = ";"
 instructionParser :: Parser [ Instruction ]
 instructionParser = do insts <- many (   labelParser
                                      <|> aluParser
+                                     <|> notParser
                                      <|> jumpParser
                                      <|> binCondParser
                                      <|> uniCondParser
@@ -68,13 +69,18 @@ aluParser = do inst <- getInst
                                <|> (Token.reserved lexer "AND" >> return AND)
                                <|> (Token.reserved lexer "OR"  >> return OR)
                                <|> (Token.reserved lexer "XOR" >> return XOR)
-                               <|> (Token.reserved lexer "NOT" >> return NOT)
                                )
+
+notParser :: Parser Instruction
+notParser = do Token.reserved lexer "NOT"
+               rd <- registerParser
+               ri <- registerParser
+               return $ NOT rd ri
 
 jumpParser :: Parser Instruction
 jumpParser = do Token.reserved lexer "JMP"
-                offset <- regOffsetParser
-                return $ JMP offset
+                ri <- registerParser
+                return $ JMP ri
 
 binCondParser :: Parser Instruction
 binCondParser = do inst   <- getInst
@@ -109,15 +115,6 @@ loadStoreParser = do inst <- getInst
 
 nopParser :: Parser Instruction
 nopParser = Token.reserved lexer "NOP" >> return NOP
-
-regOffsetParser :: Parser RegOffset
-regOffsetParser = (do r <- registerParser
-                      return $ Left r
-                  ) <|>
-                  (do char ':'
-                      l <- Token.identifier lexer
-                      return $ Right l
-                  )
 
 offsetParser :: Parser Offset
 offsetParser = (do c <- constantParser
