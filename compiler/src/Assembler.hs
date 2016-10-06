@@ -2,28 +2,20 @@ module Assembler
   ( assemble
   ) where
 
+import Assembly.Instruction
+
 import Data.Bits
 import Data.Word
-import System.IO
-import Instruction
 import qualified Data.Map.Strict as Map
 
 type LabelMap = Map.Map Label Word32
 
-assemble :: FilePath -> FilePath -> IO ()
-assemble readPath writePath = do contents <- readFile readPath
-                                 let insts = map read . lines $ contents
-                                     m     = findLabels insts
-                                     bin   = instsToWord insts
-                                 writeFile writePath $ unlines . map show $ bin
+assemble :: [ Instruction ] -> [ Word32 ]
+assemble insts = instsToWord m . filter removeLabels $ insts
+  where m                      = findLabels insts
+        removeLabels (LABEL _) = False
+        removeLabels _         = True
 
--- Code for the Lexer
-
-
--- Code for the Parser
-
-
---Code for the Assembler
 findLabels :: [ Instruction ] -> LabelMap
 findLabels = fst . foldr updateMap (Map.empty, 0)
 
@@ -62,9 +54,13 @@ instToWord m (STM ri            rj  ) = argsToWord 15 0  ri rj 0
 instToWord m (NOP                   ) = argsToWord 16 0  0  0  0
 
 argsToWord :: Word32 -> Register -> Register -> Register -> Constant -> Word32
-argsToWord a d i j c = shiftL a 28 .|. shiftL d 24 .|. shiftL i 20 .|. shiftL j 16 .|. c
+argsToWord a d i j c =   shiftL a 28
+                     .|. shiftL d 24
+                     .|. shiftL i 20
+                     .|. shiftL j 16
+                     .|. c
 
 labelToWord :: LabelMap -> Label -> Word32
 labelToWord m l = case Map.lookup l m of
                     Just w  -> w
-                    Nothing -> 0
+                    Nothing -> error $ "Undefined Label: " ++ show l ++ "."
