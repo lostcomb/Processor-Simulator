@@ -1,20 +1,22 @@
 {-# LANGUAGE GADTs #-}
 
-module Instruction
+module Assembly.Instruction
   ( Label
   , Constant
   , Register
   , Offset
+  , RegOffset
   , Instruction(..)
   ) where
 
 import Data.Word
 import Data.Either
 
-type Label    = String
-type Constant = Word32
-type Register = Word32
-type Offset   = Either Constant Label
+type Label     = String
+type Constant  = Word32
+type Register  = Word32
+type Offset    = Either Constant Label
+type RegOffset = Either Register Label
 
 data Instruction where
   ADD   :: Register -> Register -> Register -> Instruction
@@ -25,7 +27,7 @@ data Instruction where
   OR    :: Register -> Register -> Register -> Instruction
   XOR   :: Register -> Register -> Register -> Instruction
   NOT   :: Register -> Register -> Register -> Instruction
-  JMP   :: Offset                           -> Instruction
+  JMP   :: RegOffset                        -> Instruction
   BEQ   :: Offset   -> Register -> Register -> Instruction
   BGT   :: Offset   -> Register -> Register -> Instruction
   BEZ   :: Offset   -> Register             -> Instruction
@@ -34,3 +36,4 @@ data Instruction where
   STM   :: Register -> Register             -> Instruction
   NOP   ::                                     Instruction
   LABEL :: Label                            -> Instruction
+  deriving (Show, Read)

@@ -32,9 +32,9 @@ Logic:
 
 Control FLow:
 
-  * *JMP #O*
-    * Binary representation: `1001 0000 0000 0000 oooo oooo oooo oooo`
-    * Unconditional jump to PC + #O.
+  * *JMP Ri*
+    * Binary representation: `1001 0000 iiii 0000 0000 0000 0000 0000`
+    * Unconditional jump to PC + Ri.
   * *BEQ #O, Ri, Rj*
     * Binary representation: `1010 0000 iiii jjjj oooo oooo oooo oooo`
     * Branch to PC + #O if Ri == Rj.
