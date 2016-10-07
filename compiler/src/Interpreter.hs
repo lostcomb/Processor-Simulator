@@ -27,7 +27,7 @@ interpretFile path = do raw_insts <- readFile path
                         interpret insts
 
 execute :: State -> [ Instruction ] -> IO ()
-execute s@(State _ mem) insts = if length insts >= fromIntegral (get_pc s)
+execute s@(State _ mem) insts = if length insts > fromIntegral (get_pc s)
                                   then (do let inst = insts !! fromIntegral (get_pc s)
                                                ns   = executeInstruction s inst
                                            putStr "."
