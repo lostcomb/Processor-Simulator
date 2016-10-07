@@ -3,31 +3,47 @@ module Interpreter
   , interpretFile
   ) where
 
+import Assembler
 import Assembly.Parser
 import Assembly.Instruction
 
 import Data.Bits
 import Data.Word
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 
-data State     = State Registers (Map.Map Word32 Word32)
-  deriving (Show, Read)
+type Value = Word32
+
 data Registers = Registers Word32 [ Word32 ]
   deriving (Show, Read)
-
+data State = State Registers (Map.Map Word32 Word32)
+  deriving (Show, Read)
 
 interpret :: [ Instruction ] -> IO ()
-interpret insts = undefined--TODO
+interpret = execute emptyState
 
 interpretFile :: String -> IO ()
 interpretFile path = do raw_insts <- readFile path
-                        let insts = assemble . parseAssembly raw_insts
-                        -- TODO
+                        let insts = assemble . parseAssembly $ raw_insts
+                        interpret insts
 
--- TODO: Need a function which executes the correct instruction based upon the current pc value.
+execute :: State -> [ Instruction ] -> IO ()
+execute s@(State _ mem) insts = if length insts >= fromIntegral (get_pc s)
+                                  then (do let inst = insts !! fromIntegral (get_pc s)
+                                               ns   = executeInstruction s inst
+                                           putStr "."
+                                           execute ns insts
+                                       )
+                                  else (do putStrLn ""
+                                           putStrLn "Result:"
+                                           putStrLn $ "\tPC: " ++ show (get_pc s)
+                                           mapM_ (\gpr -> putStrLn $ "\tGPR" ++ show gpr ++ ": " ++ show (get s gpr)) [0..15]
+                                           putStrLn "\tMemory:"
+                                           mapM_ (\(loc, val) -> putStrLn $ "\t\tMEM[" ++ show loc ++ "] = " ++ show val) $ Map.assocs mem
+                                           putStrLn ""
+                                       )
 
 emptyRegisters :: Registers
-emptyRegisters = Registers 0 [ 0 | x <- 0..15 ]
+emptyRegisters = Registers 0 [ 0 | x <- [0..15] ]
 
 emptyState :: State
 emptyState = State emptyRegisters Map.empty
@@ -47,7 +63,7 @@ executeInstruction s i = case i of
   (BGT (Left c) ri rj) -> if get s ri >  get s rj then set_pc s c else inc_pc s
   (BEZ (Left c) ri   ) -> if get s ri == 0        then set_pc s c else inc_pc s
   (LDC rd    c       ) -> inc_pc . set s rd $ c
-  (LDM rd       ri   ) -> inc_pc . set s rd $ get_mem ri
+  (LDM rd       ri   ) -> inc_pc . set s rd $ get_mem s ri
   (STM ri          rj) -> inc_pc . set_mem s ri $ rj
   (NOP               ) -> inc_pc s
   _                    -> error $ "Unable to execute Instruction.\n Current State: " ++ show s ++ "\n Instruction: " ++ show i
@@ -55,17 +71,22 @@ executeInstruction s i = case i of
 inc_pc :: State -> State
 inc_pc (State (Registers pc gprs) mem) = State (Registers (pc + 1) gprs) mem
 
-set_pc :: State -> Word32 -> State
+set_pc :: State -> Constant -> State
 set_pc (State (Registers _ gprs) mem) pc = State (Registers pc gprs) mem
 
-set :: State -> Word32 -> Word32 -> State
-set (State (Registers pc gprs) mem) gpr val = undefined--TODO
+get_pc :: State -> Value
+get_pc (State (Registers pc _) _) = pc
 
-get :: State -> Word32 -> Word32
-get (State (Registers pc gprs) mem) gpr = undefined--TODO
+set :: State -> Register -> Value -> State
+set (State (Registers pc gprs) mem) gpr val = State (Registers pc ugprs) mem
+  where (st, en) = splitAt (fromIntegral gpr) gprs
+        ugprs    = st ++ [val] ++ tail en
 
-set_mem :: State -> Word32 -> Word32 -> State
-set_mem (State (Registers pc gprs) mem) loc gpr = undefined--TODO
+get :: State -> Register -> Value
+get (State (Registers _ gprs) _) gpr = gprs !! fromIntegral gpr
 
-get_mem :: State -> Word32 -> Word32
-get_mem (State r mem) loc = undefined--TODO
+set_mem :: State -> Register -> Register -> State
+set_mem s@(State r mem) loc gpr = State r $ Map.insert (get s loc) (get s gpr) mem
+
+get_mem :: State -> Register -> Value
+get_mem s@(State _ mem) loc = Map.findWithDefault 0 (get s loc) mem

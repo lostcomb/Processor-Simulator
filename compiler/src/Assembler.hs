@@ -27,8 +27,8 @@ findLabels :: [ Instruction ] -> LabelMap
 findLabels = fst . foldr updateMap (Map.empty, 0)
 
 updateMap :: Instruction -> (LabelMap, Word32) -> (LabelMap, Word32)
-updateMap (LABEL l) (m, pos) = (Map.insert l pos m, pos    )
-updateMap _         (m, pos) = (                 m, pos + 1)
+updateMap (LABEL l) (m, pos) = (Map.insert l (pos + 1) m, pos    )
+updateMap _         (m, pos) = (                       m, pos + 1)
 
 replaceLabel :: LabelMap -> Instruction -> Instruction
 replaceLabel m (BEQ (Right l) ri rj) = BEQ (Left $ labelToWord m l) ri rj
