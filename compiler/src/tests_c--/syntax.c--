@@ -1,0 +1,13 @@
+// This program is to test the syntax parser of the compiler.
+
+Int main () {
+  Bool t;
+  t = True;
+
+  Int j;
+  for (Int i; i < 200; i = i + 1) {
+    j = i * 2 / 3;
+  }
+
+  return 0;
+}
