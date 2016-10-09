@@ -84,13 +84,19 @@ statementsParser :: Parser [ Statement ]
 statementsParser = many1 statementParser
 
 statementParser :: Parser Statement
-statementParser =   declarationParser
+statementParser =   try assignDeclrParser
+                <|> declarationParser
                 <|> assignmentParser
                 <|> condParser
                 <|> whileParser
                 <|> forParser
                 <|> functionCallParser
                 <|> returnParser
+
+assignDeclrParser :: Parser Statement
+assignDeclrParser = do assignDecl <- assignDeclParser
+                       Token.symbol lexer ";"
+                       return $ AssignDeclr assignDecl
 
 declarationParser :: Parser Statement
 declarationParser = do declare <- declareParser
@@ -125,7 +131,7 @@ whileParser = do Token.reserved lexer "while"
 forParser :: Parser Statement
 forParser = do Token.reserved lexer "for"
                Token.symbol lexer "("
-               decl   <- optionMaybe declareParser--TODO: Allow assignment in declaration
+               decl   <- optionMaybe assignDeclParser
                Token.symbol lexer ";"
                bexp   <- optionMaybe bexpParser
                Token.symbol lexer ";"
@@ -146,6 +152,23 @@ returnParser = do Token.reserved lexer "return"
                   ret <- (liftM ReturnBexp bexpParser <|> liftM ReturnAexp aexpParser)
                   Token.symbol lexer ";"
                   return ret
+
+assignDeclParser :: Parser AssignDecl
+assignDeclParser =   (do Token.reserved lexer "Int"
+                         ident <- Token.identifier lexer
+                         index <- indexParser
+                         Token.reservedOp lexer "="
+                         aexp  <- aexpParser
+                         return $ AssignDeclInt ident index aexp
+                     )
+                 <|> (do Token.reserved lexer "Bool"
+                         ident <- Token.identifier lexer
+                         index <- indexParser
+                         Token.reservedOp lexer "="
+                         bexp  <- bexpParser
+                         return $ AssignDeclBool ident index bexp
+                     )
+
 
 indexParser :: Parser Int
 indexParser = (   (liftM fromIntegral $ Token.brackets lexer (Token.integer lexer))

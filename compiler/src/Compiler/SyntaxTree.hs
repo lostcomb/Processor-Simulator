@@ -4,6 +4,7 @@ module Compiler.SyntaxTree
   , Arg(..)
   , Declare(..)
   , Assign(..)
+  , AssignDecl(..)
   , Statement(..)
   , FuncCall(..)
   , Function(..)
@@ -26,11 +27,16 @@ data Assign     = AssignAexp Identifier Index Aexp
                 | AssignBexp Identifier Index Bexp
                 deriving (Show, Eq, Read)
 
+data AssignDecl = AssignDeclInt  Identifier Index Aexp
+                | AssignDeclBool Identifier Index Bexp
+                deriving (Show, Eq, Read)
+
 data Statement  = Declaration  Declare
                 | Assignment   Assign
+                | AssignDeclr  AssignDecl
                 | Cond         Bexp [ Statement ] [ Statement ]
                 | While        Bexp [ Statement ]
-                | For          (Maybe Declare) (Maybe Bexp) (Maybe Assign) [ Statement ]
+                | For          (Maybe AssignDecl) (Maybe Bexp) (Maybe Assign) [ Statement ]
                 | FunctionCall FuncCall
                 | ReturnAexp   Aexp
                 | ReturnBexp   Bexp
