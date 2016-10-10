@@ -1,58 +1,61 @@
 module Compiler.SyntaxTree
   ( Index
   , Identifier
-  , Arg(..)
-  , Declare(..)
-  , Assign(..)
-  , AssignDecl(..)
-  , Statement(..)
-  , FuncCall(..)
+  , Expression
+  , OptionalAexp
   , Function(..)
+  , Type(..)
+  , Arg(..)
+  , Statement(..)
+  , DecVar(..)
+  , Assign(..)
+  , AssVar(..)
+  , AssignDecl(..)
   , Aexp(..)
   , Bexp(..)
+  , FuncCall(..)
   ) where
 
 type Index      = Int
 type Identifier = String
+type Expression = Either Aexp Bexp
+type OptionalAexp = Maybe Aexp
 
-data Arg        = ArgInt  Identifier
-                | ArgBool Identifier
+data Function   = Function Type Identifier [ Arg ] [ Statement ]
                 deriving (Show, Eq, Read)
 
-data Declare    = DeclareInt  Identifier Index
-                | DeclareBool Identifier Index
+data Type       = INT
+                | BOOL
                 deriving (Show, Eq, Read)
 
-data Assign     = AssignAexp Identifier Index Aexp
-                | AssignBexp Identifier Index Bexp
+data Arg        = Arg Type Identifier
                 deriving (Show, Eq, Read)
 
-data AssignDecl = AssignDeclInt  Identifier Index Aexp
-                | AssignDeclBool Identifier Index Bexp
-                deriving (Show, Eq, Read)
-
-data Statement  = Declaration  Declare
+data Statement  = Declaration  DecVar
                 | Assignment   Assign
                 | AssignDeclr  AssignDecl
                 | Cond         Bexp [ Statement ] [ Statement ]
                 | While        Bexp [ Statement ]
                 | For          (Maybe AssignDecl) (Maybe Bexp) (Maybe Assign) [ Statement ]
                 | FunctionCall FuncCall
-                | ReturnAexp   Aexp
-                | ReturnBexp   Bexp
+                | Return       Expression
                 deriving (Show, Eq, Read)
 
-data FuncCall   = FuncCall Identifier [ (Either Aexp Bexp) ]
+data DecVar     = DecVar Type Identifier OptionalAexp
                 deriving (Show, Eq, Read)
 
-data Function   = FunctionInt  Identifier [ Arg ] [ Statement ]
-                | FunctionBool Identifier [ Arg ] [ Statement ]
-                | FunctionVoid Identifier [ Arg ] [ Statement ]
+data Assign     = Assign AssVar Expression
+                deriving (Show, Eq, Read)
+
+data AssVar     = AssVar Identifier OptionalAexp
+                deriving (Show, Eq, Read)
+
+data AssignDecl = AssignDecl DecVar Expression
                 deriving (Show, Eq, Read)
 
 data Aexp       = Const Int
-                | Var   Identifier Index
                 | Func  FuncCall
+                | Var   AssVar
                 | Add   Aexp Aexp
                 | Sub   Aexp Aexp
                 | Mul   Aexp Aexp
@@ -69,4 +72,7 @@ data Bexp       = TRUE
                 | Neg Bexp
                 | And Bexp Bexp
                 | Or  Bexp Bexp
+                deriving (Show, Eq, Read)
+
+data FuncCall   = FuncCall Identifier [ Expression ]
                 deriving (Show, Eq, Read)
