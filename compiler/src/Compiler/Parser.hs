@@ -22,8 +22,9 @@ languageDef =  emptyDef
   , commentEnd      = "*/"
   , commentLine     = "//"
   , nestedComments  = True
-  , reservedNames   = [ "Int"   , "Bool"  , "Void"  , "if"    , "else"
-                      , "while" , "for"   , "True"  , "False" , "return"
+  , reservedNames   = [ "Int"   , "Bool"  , "True"  , "False"
+                      , "if"    , "else"  , "while" , "for"
+                      , "return"
                       ]
   , reservedOpNames = [ "=" , "+" , "-" , "*" , "/" , "=="
                       , "<" , ">" , "<=", ">=", "!" , "&&"
@@ -61,26 +62,26 @@ statementParser =   try (Declaration  <$> decVarParser     <* semi lexer)
                 <|> try (Assignment   <$> assignParser     <* semi lexer)
                 <|> try (AssignDeclr  <$> assignDeclParser <* semi lexer)
                 <|> (Cond         <$  reserved lexer "if"
-                                  <*> parens lexer bexpParser
+                                  <*> parens lexer expressionParser
                                   <*> (braces lexer (many statementParser) <|> count 1 statementParser)
                                   <*> option []
                                       (reserved lexer "else"
                                    *> (braces lexer (many statementParser) <|> count 1 statementParser)))
                 <|> (While        <$  reserved lexer "while"
-                                  <*> parens lexer bexpParser
+                                  <*> parens lexer expressionParser
                                   <*> (braces lexer (many statementParser) <|> count 1 statementParser))
                 <|> (For          <$  reserved lexer "for"
                                   <*  symbol lexer "("
                                   <*> optionMaybe assignDeclParser
                                   <*  semi lexer
-                                  <*> optionMaybe bexpParser
+                                  <*> optionMaybe expressionParser
                                   <*  semi lexer
                                   <*> optionMaybe assignParser
                                   <*  symbol lexer ")"
                                   <*> (braces lexer (many statementParser) <|> count 1 statementParser))
-                <|> (FunctionCall <$> funcCallParser   <* semi lexer)
+                <|> (FunctionCall <$> funcCallParser       <* semi lexer)
                 <|> (Return       <$  reserved lexer "return"
-                                  <*> expressionParser <* semi lexer)
+                                  <*> expressionParser     <* semi lexer)
 
 decVarParser :: Parser DecVar
 decVarParser = DecVar <$> typeParser
@@ -90,7 +91,7 @@ decVarParser = DecVar <$> typeParser
 
 assVarParser :: Parser AssVar
 assVarParser = AssVar <$> identifier lexer
-                      <*> optionMaybe (brackets lexer (aexpParser))
+                      <*> optionMaybe (brackets lexer (expressionParser))
 
 assignParser :: Parser Assign
 assignParser = Assign <$> assVarParser
@@ -109,43 +110,27 @@ funcCallParser = FuncCall <$> identifier lexer
                           <*> parens lexer (commaSep lexer expressionParser)
 
 expressionParser :: Parser Expression
-expressionParser =   (Right <$> bexpParser)
-                 <|> (Left  <$> aexpParser)
+expressionParser = buildExpressionParser expressionOps expressionTerm
 
-aexpParser :: Parser Aexp
-aexpParser = buildExpressionParser aexpOps aexpTerm
+expressionOps :: OperatorTable String u Data.Functor.Identity.Identity Expression
+expressionOps = [ [ Infix  (reservedOp lexer "/"  >> return Div) AssocLeft ]
+                , [ Infix  (reservedOp lexer "*"  >> return Mul) AssocLeft ]
+                , [ Infix  (reservedOp lexer "+"  >> return Add) AssocLeft ,
+                    Infix  (reservedOp lexer "-"  >> return Sub) AssocLeft ]
+                , [ Infix  (reservedOp lexer "==" >> return Eq ) AssocLeft ,
+                    Infix  (reservedOp lexer "<"  >> return Lt ) AssocLeft ,
+                    Infix  (reservedOp lexer ">"  >> return Gt ) AssocLeft ,
+                    Infix  (reservedOp lexer "<=" >> return Lte) AssocLeft ,
+                    Infix  (reservedOp lexer ">=" >> return Gte) AssocLeft ]
+                , [ Prefix (reservedOp lexer "!"  >> return Neg)           ]
+                , [ Infix  (reservedOp lexer "&&" >> return And) AssocLeft ,
+                    Infix  (reservedOp lexer "||" >> return Or ) AssocLeft ]
+                ]
 
-aexpOps :: OperatorTable String u Data.Functor.Identity.Identity Aexp
-aexpOps = [ [ Infix (reservedOp lexer "/" >> return Div) AssocLeft ]
-          , [ Infix (reservedOp lexer "*" >> return Mul) AssocLeft ]
-          , [ Infix (reservedOp lexer "+" >> return Add) AssocLeft ,
-              Infix (reservedOp lexer "-" >> return Sub) AssocLeft ]
-          ]
-
-aexpTerm :: Parser Aexp
-aexpTerm =   Const . fromIntegral <$> integer lexer
-         <|> try (Func <$> funcCallParser)
-         <|> try (Var  <$> assVarParser  )
-         <|> parens lexer aexpParser
-
-bexpParser :: Parser Bexp
-bexpParser = buildExpressionParser bexpOps bexpTerm
-
-bexpOps :: OperatorTable String u Data.Functor.Identity.Identity Bexp
-bexpOps = [ [ Prefix (reservedOp lexer "!"  >> return Neg)           ]
-          , [ Infix  (reservedOp lexer "&&" >> return And) AssocLeft ,
-              Infix  (reservedOp lexer "||" >> return Or ) AssocLeft ]
-          ]
-
-bexpTerm :: Parser Bexp
-bexpTerm =   reserved lexer "True"  *> pure TRUE
-         <|> reserved lexer "False" *> pure FALSE
-         <|> relationParser
-         <|> parens lexer bexpParser
-
-relationParser :: Parser Bexp
-relationParser =   try (Eq  <$> aexpParser <* reservedOp lexer "==" <*> aexpParser)
-               <|> try (Lt  <$> aexpParser <* reservedOp lexer "<"  <*> aexpParser)
-               <|> try (Gt  <$> aexpParser <* reservedOp lexer ">"  <*> aexpParser)
-               <|> try (Lte <$> aexpParser <* reservedOp lexer "<=" <*> aexpParser)
-               <|> try (Gte <$> aexpParser <* reservedOp lexer ">=" <*> aexpParser)
+expressionTerm :: Parser Expression
+expressionTerm =   reserved lexer "True"  *> pure TRUE
+               <|> reserved lexer "False" *> pure FALSE
+               <|> Const . fromIntegral <$> integer lexer
+               <|> try (Func <$> funcCallParser)
+               <|> try (Var  <$> assVarParser  )
+               <|> parens lexer expressionParser

@@ -3,10 +3,14 @@
 Int main () {
   Bool t = True;
 
+  Int y = 2;
+  Int x[4];
+
   Int j[11];
   for (Int i = 0; i < 10; i = i + 1) {
     j[i] = square(i);
     j[i + 1] = 2 * square(i);
+    empty();
   }
 
   return 0;
@@ -15,3 +19,16 @@ Int main () {
 Int square (Int x) {
   return x * x;
 }
+
+Bool and (Bool b1, Bool b2) {
+  return !b1 && !b2;
+  while (b1 < b2)
+    return b1;
+}
+
+Int ifThenElse (Bool b, Int t, Int e) {
+  if (b == b) return t;
+  else return e;
+}
+
+Int empty () {}

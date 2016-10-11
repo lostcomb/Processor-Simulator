@@ -1,8 +1,6 @@
 module Compiler.SyntaxTree
   ( Index
   , Identifier
-  , Expression
-  , OptionalAexp
   , Function(..)
   , Type(..)
   , Arg(..)
@@ -11,15 +9,12 @@ module Compiler.SyntaxTree
   , Assign(..)
   , AssVar(..)
   , AssignDecl(..)
-  , Aexp(..)
-  , Bexp(..)
+  , Expression(..)
   , FuncCall(..)
   ) where
 
 type Index      = Int
 type Identifier = String
-type Expression = Either Aexp Bexp
-type OptionalAexp = Maybe Aexp
 
 data Function   = Function Type Identifier [ Arg ] [ Statement ]
                 deriving (Show, Eq, Read)
@@ -34,44 +29,42 @@ data Arg        = Arg Type Identifier
 data Statement  = Declaration  DecVar
                 | Assignment   Assign
                 | AssignDeclr  AssignDecl
-                | Cond         Bexp [ Statement ] [ Statement ]
-                | While        Bexp [ Statement ]
-                | For          (Maybe AssignDecl) (Maybe Bexp) (Maybe Assign) [ Statement ]
+                | Cond         Expression [ Statement ] [ Statement ]
+                | While        Expression [ Statement ]
+                | For          (Maybe AssignDecl) (Maybe Expression) (Maybe Assign) [ Statement ]
                 | FunctionCall FuncCall
                 | Return       Expression
                 deriving (Show, Eq, Read)
 
-data DecVar     = DecVar Type Identifier OptionalAexp
+data DecVar     = DecVar Type Identifier (Maybe Expression)
                 deriving (Show, Eq, Read)
 
 data Assign     = Assign AssVar Expression
                 deriving (Show, Eq, Read)
 
-data AssVar     = AssVar Identifier OptionalAexp
+data AssVar     = AssVar Identifier (Maybe Expression)
                 deriving (Show, Eq, Read)
 
 data AssignDecl = AssignDecl DecVar Expression
                 deriving (Show, Eq, Read)
 
-data Aexp       = Const Int
+data Expression = TRUE
+                | FALSE
+                | Const Int
                 | Func  FuncCall
                 | Var   AssVar
-                | Add   Aexp Aexp
-                | Sub   Aexp Aexp
-                | Mul   Aexp Aexp
-                | Div   Aexp Aexp
-                deriving (Show, Eq, Read)
-
-data Bexp       = TRUE
-                | FALSE
-                | Eq  Aexp Aexp
-                | Lt  Aexp Aexp
-                | Gt  Aexp Aexp
-                | Lte Aexp Aexp
-                | Gte Aexp Aexp
-                | Neg Bexp
-                | And Bexp Bexp
-                | Or  Bexp Bexp
+                | Add   Expression Expression
+                | Sub   Expression Expression
+                | Mul   Expression Expression
+                | Div   Expression Expression
+                | Eq    Expression Expression
+                | Lt    Expression Expression
+                | Gt    Expression Expression
+                | Lte   Expression Expression
+                | Gte   Expression Expression
+                | Neg   Expression
+                | And   Expression Expression
+                | Or    Expression Expression
                 deriving (Show, Eq, Read)
 
 data FuncCall   = FuncCall Identifier [ Expression ]
