@@ -2,7 +2,7 @@ module Main where
 
 --import Assembler
 --import Interpreter
---import Assembly.Parser
+import Assembly.Parser
 
 import Compiler.Parser
 import Compiler.Generator

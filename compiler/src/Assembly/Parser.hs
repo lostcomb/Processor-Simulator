@@ -4,133 +4,105 @@ module Assembly.Parser
 
 import Assembly.Instruction
 
-import Control.Monad
-
 import Text.Parsec
+import Text.Parsec.Token
 import Text.Parsec.String (Parser)
 import Text.Parsec.Language (emptyDef)
-import qualified Text.Parsec.Token as Token
+
+import Control.Applicative hiding (Const, (<|>), many)
 
 parseAssembly :: String -> [ Instruction ]
-parseAssembly str = case parse instructionParser "" str of
+parseAssembly str = case parse (whiteSpace lexer >> instructionParser) "" str of
                       Left  e -> error $ show e
                       Right r -> r
 
-lexer = Token.makeTokenParser languageDef
-languageDef = emptyDef { Token.commentLine   = ";"
-                       , Token.reservedNames = [ "ADD"
-                                               , "SUB"
-                                               , "MUL"
-                                               , "DIV"
-                                               , "AND"
-                                               , "OR"
-                                               , "XOR"
-                                               , "NOT"
-                                               , "JMP"
-                                               , "BEQ"
-                                               , "BGT"
-                                               , "BEZ"
-                                               , "LDC"
-                                               , "LDM"
-                                               , "STM"
-                                               , "NOP"
-                                               ]
-                       }
+lexer = makeTokenParser languageDef
+languageDef = emptyDef
+  { commentLine   = ";"
+  , reservedNames = [ "ADD", "SUB", "MUL", "DIV"
+                    , "AND", "OR" , "XOR", "NOT"
+                    , "JMP", "BEQ", "BGT", "BEZ"
+                    , "LDC", "LDM", "STM", "NOP"
+                    ]
+  }
 
 instructionParser :: Parser [ Instruction ]
-instructionParser = do insts <- many (   labelParser
-                                     <|> aluParser
-                                     <|> notParser
-                                     <|> jumpParser
-                                     <|> binCondParser
-                                     <|> uniCondParser
-                                     <|> loadConstParser
-                                     <|> loadStoreParser
-                                     <|> nopParser
-                                     )
-                       eof
-                       return insts
+instructionParser = many ((   labelParser
+                          <|> aluParser
+                          <|> notParser
+                          <|> jumpParser
+                          <|> binCondParser
+                          <|> uniCondParser
+                          <|> loadConstParser
+                          <|> loadStoreParser
+                          <|> nopParser
+                          ) <* eof)
 
 labelParser :: Parser Instruction
-labelParser = do char ':'
-                 ident <- Token.identifier lexer
-                 return $ LABEL ident
+labelParser = LABEL <$ char ':' <*> identifier lexer
 
 aluParser :: Parser Instruction
-aluParser = do inst <- getInst
-               rd   <- registerParser
-               ri   <- registerParser
-               rj   <- registerParser
-               return $ inst rd ri rj
-               where getInst = (   (Token.reserved lexer "ADD" >> return ADD)
-                               <|> (Token.reserved lexer "SUB" >> return SUB)
-                               <|> (Token.reserved lexer "MUL" >> return MUL)
-                               <|> (Token.reserved lexer "DIV" >> return DIV)
-                               <|> (Token.reserved lexer "AND" >> return AND)
-                               <|> (Token.reserved lexer "OR"  >> return OR)
-                               <|> (Token.reserved lexer "XOR" >> return XOR)
-                               )
+aluParser =   ADD <$ reserved lexer "ADD"
+                  <*> registerParser <*> registerParser <*> registerParser
+          <|> SUB <$ reserved lexer "SUB"
+                  <*> registerParser <*> registerParser <*> registerParser
+          <|> MUL <$ reserved lexer "MUL"
+                  <*> registerParser <*> registerParser <*> registerParser
+          <|> DIV <$ reserved lexer "DIV"
+                  <*> registerParser <*> registerParser <*> registerParser
+          <|> AND <$ reserved lexer "AND"
+                  <*> registerParser <*> registerParser <*> registerParser
+          <|> OR  <$ reserved lexer "OR"
+                  <*> registerParser <*> registerParser <*> registerParser
+          <|> XOR <$ reserved lexer "XOR"
+                  <*> registerParser <*> registerParser <*> registerParser
 
 notParser :: Parser Instruction
-notParser = do Token.reserved lexer "NOT"
-               rd <- registerParser
-               ri <- registerParser
-               return $ NOT rd ri
+notParser = NOT <$ reserved lexer "NOT"
+                <*> registerParser
+                <*> registerParser
 
 jumpParser :: Parser Instruction
-jumpParser = do Token.reserved lexer "JMP"
-                ri <- registerParser
-                return $ JMP ri
+jumpParser = JMP <$ reserved lexer "JMP"
+                 <*> registerParser
 
 binCondParser :: Parser Instruction
-binCondParser = do inst   <- getInst
-                   offset <- offsetParser
-                   ri     <- registerParser
-                   rj     <- registerParser
-                   return $ inst offset ri rj
-                   where getInst = (   (Token.reserved lexer "BEQ" >> return BEQ)
-                                   <|> (Token.reserved lexer "BGT" >> return BGT)
-                                   )
+binCondParser =   BEQ <$  reserved lexer "BEQ"
+                      <*> offsetParser
+                      <*> registerParser
+                      <*> registerParser
+              <|> BGT <$  reserved lexer "BGT"
+                      <*> offsetParser
+                      <*> registerParser
+                      <*> registerParser
 
 uniCondParser :: Parser Instruction
-uniCondParser = do Token.reserved lexer "BEZ"
-                   offset <- offsetParser
-                   ri     <- registerParser
-                   return $ BEZ offset ri
+uniCondParser = BEZ <$ reserved lexer "BEZ"
+                    <*> offsetParser
+                    <*> registerParser
 
 loadConstParser :: Parser Instruction
-loadConstParser = do Token.reserved lexer "LDC"
-                     rd <- registerParser
-                     c  <- constantParser
-                     return $ LDC rd c
+loadConstParser = LDC <$ reserved lexer "LDC"
+                      <*> registerParser
+                      <*> offsetParser
 
 loadStoreParser :: Parser Instruction
-loadStoreParser = do inst <- getInst
-                     r1   <- registerParser
-                     r2   <- registerParser
-                     return $ inst r1 r2
-                     where getInst = (   (Token.reserved lexer "LDM" >> return LDM)
-                                     <|> (Token.reserved lexer "STM" >> return STM)
-                                     )
+loadStoreParser =   LDM <$  reserved lexer "LDM"
+                        <*> registerParser
+                        <*> registerParser
+                <|> STM <$  reserved lexer "STM"
+                        <*> registerParser
+                        <*> registerParser
 
 nopParser :: Parser Instruction
-nopParser = Token.reserved lexer "NOP" >> return NOP
+nopParser = reserved lexer "NOP" *> pure NOP
 
 offsetParser :: Parser Offset
-offsetParser = (do c <- constantParser
-                   return $ Left c
-               ) <|>
-               (do char ':'
-                   l <- Token.identifier lexer
-                   return $ Right l
-               )
+offsetParser =   Left  <$> constantParser
+             <|> Right <$ char ':' <*> identifier lexer
 
 registerParser :: Parser Register
-registerParser = do (char 'R' <|> char 'r')
-                    reg <- Token.integer lexer
-                    return $ fromIntegral reg
+registerParser = fromIntegral <$ (char 'R' <|> char 'r') <*> integer lexer
 
 constantParser :: Parser Constant
-constantParser = do char '#'
-                    c <- Token.integer lexer
-                    return $ fromIntegral c
+constantParser = fromIntegral <$ char '#' <*> integer lexer
