@@ -1,10 +1,11 @@
 module Main where
 
-import Assembler
-import Interpreter
-import Assembly.Parser
+--import Assembler
+--import Interpreter
+--import Assembly.Parser
 
 import Compiler.Parser
+import Compiler.Generator
 
 main :: IO ()
 --main = do content <- readFile "test.asm"

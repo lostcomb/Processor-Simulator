@@ -1,6 +1,8 @@
-module Compiler.SyntaxTree
-  ( Index
+module Compiler.SyntaxTree (
+  -- Type synonym for identifiers.
+    Program
   , Identifier
+  -- Types used for syntactic constructs in language.
   , Function(..)
   , Type(..)
   , Arg(..)
@@ -13,7 +15,7 @@ module Compiler.SyntaxTree
   , FuncCall(..)
   ) where
 
-type Index      = Int
+type Program    = [ Function ]
 type Identifier = String
 
 data Function   = Function Type Identifier [ Arg ] [ Statement ]

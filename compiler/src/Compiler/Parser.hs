@@ -1,3 +1,5 @@
+-- |This module defines a parser for the c-- language.
+
 module Compiler.Parser
   ( parseStr
   , parseFile
@@ -12,8 +14,8 @@ import Text.Parsec.String (Parser)
 import Text.Parsec.Language (emptyDef)
 
 import System.IO
-import Control.Applicative hiding (Const, (<|>), many)
 import Data.Functor.Identity
+import Control.Applicative hiding (Const, (<|>), many)
 
 lexer = makeTokenParser languageDef
 
@@ -32,31 +34,54 @@ languageDef =  emptyDef
                       ]
   }
 
-parseStr :: String -> [ Function ]
+-- |This function returns the result of parsing @str@. Calls 'error' if @str@
+--  is not valid c--.
+parseStr :: String -> Program
 parseStr str = case parse (whiteSpace lexer >> programParser) "" str of
                  Left  e -> error $ show e
                  Right r -> r
 
-parseFile :: FilePath -> IO [ Function ]
+-- |This function returns the result of parsing the file specified by @path@.
+--  Calls 'error' if the file specified by @path@ doesn't contain valid c--.
+parseFile :: FilePath -> IO Program
 parseFile path = do source <- readFile path
                     return $ parseStr source
 
-programParser :: Parser [ Function ]
+-- |A program is made up of a list of functions. There must be one function with
+--  the identifier 'main', although this is not enforced at this level.
+programParser :: Parser Program
 programParser = many1 functionParser
 
+-- |The syntax for a function is:
+--  <function> ::= <type> <identifier> '(' <arg> { ',' <arg> } ')' '{' { <statement> } '}'
 functionParser :: Parser Function
 functionParser = Function <$> typeParser
                           <*> identifier lexer
                           <*> parens lexer (commaSep lexer argParser)
                           <*> braces lexer (many statementParser)
 
+-- |The syntax for a type is:
+--  <type> ::= 'Int'
+--         |   'Bool'
 typeParser :: Parser Type
 typeParser =   (reserved lexer "Int"  *> pure INT )
            <|> (reserved lexer "Bool" *> pure BOOL)
 
+-- |The syntax for an argument is:
+--  <arg> ::= <type> <identifier>
 argParser :: Parser Arg
 argParser = Arg <$> typeParser <*> identifier lexer
 
+-- |The syntax for a statement is:
+--  <statement> ::= <type> <identifier> [ '[' <integer> ']' ] ';'
+--              |   <identifier> [ '[' <expression> ']' ] '=' <expression> ';'
+--              |   <type> <identifier> '=' <expression> ';'
+--              |   'if' '(' <expression> ')' ('{' { <statement> } '}' | <statement>) [ 'else' ('{' { <statement> } '}' | <statement>) ]
+--              |   'while' '(' <expression> ')' ('{' { <statement> } '}' | <statement>)
+--              |   'for' '(' [ <assignDecl> ] ';' [ <expression> ] ';' [ <assignment> ] ')' ('{' { <statement> } '}' | <statement>)
+--              |   <identifier> '(' <expression> { ',' <expression> } ')' ';'
+--              |   <identifier> '(' ')' ';'
+--              |   'return' <expression> ';'
 statementParser :: Parser Statement
 statementParser =   try (Declaration  <$> decVarParser     <* semi lexer)
                 <|> try (Assignment   <$> assignParser     <* semi lexer)
@@ -83,21 +108,29 @@ statementParser =   try (Declaration  <$> decVarParser     <* semi lexer)
                 <|> (Return       <$  reserved lexer "return"
                                   <*> expressionParser     <* semi lexer)
 
+-- |The syntax for a variable declaration is:
+--  <decVar> ::= <type> <identifier> [ '[' <expression> ']' ]
 decVarParser :: Parser DecVar
 decVarParser = DecVar <$> typeParser
                       <*> identifier lexer
                       <*> optionMaybe
                             (brackets lexer (Const . fromIntegral <$> integer lexer))
 
+-- |The syntax for a variable assignment is:
+--  <assVar> ::= <identifier> [ '[' <expression> ']' ]
 assVarParser :: Parser AssVar
 assVarParser = AssVar <$> identifier lexer
                       <*> optionMaybe (brackets lexer (expressionParser))
 
+-- |The syntax for an assignment is:
+-- <assignment> ::= <assVar> '=' <expression>
 assignParser :: Parser Assign
 assignParser = Assign <$> assVarParser
                       <*  reservedOp lexer "="
                       <*> expressionParser
 
+-- |The syntax for a declaration with assignment is:
+--  <assignmentDecl> ::= <type> <identifier> '=' <expression>
 assignDeclParser :: Parser AssignDecl
 assignDeclParser = AssignDecl <$> (DecVar <$> typeParser
                                           <*> identifier lexer
@@ -105,10 +138,15 @@ assignDeclParser = AssignDecl <$> (DecVar <$> typeParser
                               <*  reservedOp lexer "="
                               <*> expressionParser
 
+-- |The syntax for a function call is:
+--  <funcCall> ::= <identifier> '(' <expression> { ',' <expression> } ')'
+--             |   <identifier> '(' ')'
 funcCallParser :: Parser FuncCall
 funcCallParser = FuncCall <$> identifier lexer
                           <*> parens lexer (commaSep lexer expressionParser)
 
+-- |The precedence of the operators (in descending order) is:
+--  /, *, +, -, ==, <, >, <=, >=, !, &&, ||
 expressionParser :: Parser Expression
 expressionParser = buildExpressionParser expressionOps expressionTerm
 
