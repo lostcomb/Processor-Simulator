@@ -28,18 +28,16 @@ data Instruction where
   AND   :: Register -> Register -> Register -> Instruction
   -- Rd <- Ri | Rj
   OR    :: Register -> Register -> Register -> Instruction
-  -- Rd <- Ri ^ Rj
-  XOR   :: Register -> Register -> Register -> Instruction
   -- Rd <- ¬Ri
   NOT   :: Register -> Register             -> Instruction
   -- PC = PC + Ri
   JMP   :: Register                         -> Instruction
-  -- PC = PC + #O if Ri == Rj
-  BEQ   :: Offset   -> Register -> Register -> Instruction
-  -- PC = PC + #O if Ri > Rj
-  BGT   :: Offset   -> Register -> Register -> Instruction
   -- PC = PC + #O if Ri == 0
   BEZ   :: Offset   -> Register             -> Instruction
+  -- Rd <- 1 if Ri == Rj, Rd <- 0 otherwise
+  CEQ   :: Register -> Register -> Register -> Instruction
+  -- Rd <- 1 if Ri <  Rj, Rd <- 0 otherwise
+  CGT   :: Register -> Register -> Register -> Instruction
   -- Rd <- #C
   LDC   :: Register -> Offset               -> Instruction
   -- Rd <- MEM[Ri]

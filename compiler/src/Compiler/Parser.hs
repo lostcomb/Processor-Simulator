@@ -18,7 +18,6 @@ import Data.Functor.Identity
 import Control.Applicative hiding (Const, (<|>), many)
 
 lexer = makeTokenParser languageDef
-
 languageDef =  emptyDef
   { commentStart    = "/*"
   , commentEnd      = "*/"

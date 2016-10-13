@@ -19,14 +19,11 @@ type VariableMap  = Map.Map Identifier (Type, Address)
 type UniOpCons    = Register -> Register -> Instruction
 type BinOpCons    = Register -> Register -> Register -> Instruction
 
-data ProgramState = ProgramState { progMem  :: [ Instruction ] --Program Memory.
-                                 , globMem  :: [ Identifier  ] --Globals Memory.
-                                 , functs   :: FunctionMap     --Maintains a map of functions to their
-                                                               --type and the list of argument types.
-                                 , vars     :: VariableMap     --Maintains a map of the variables
-                                                               --currently in scope to their type and
-                                                               --where they are stored.
-                                 , availReg :: Register        --Stores the next available register.
+data ProgramState = ProgramState { progMem :: [ Instruction ]
+                                 , globMem :: [ Identifier  ]
+                                 , functs  :: FunctionMap
+                                 , vars    :: VariableMap
+                                 , resReg  :: Register
                                  }
 
 -- |This constant defines the register that is used for the program counter.
@@ -39,93 +36,128 @@ sp = pc + 1
 
 -- |This constant defines an empty ProgramState.
 emptyProgramState :: ProgramState
-emptyProgramState = ProgramState { progMem  = []
-                                 , globMem  = []
-                                 , functs   = Map.empty
-                                 , vars     = Map.empty
-                                 , availReg = sp + 1
+emptyProgramState = ProgramState { progMem = []
+                                 , globMem = []
+                                 , functs  = Map.empty
+                                 , vars    = Map.empty
+                                 , resReg  = sp + 1
                                  }
 
 -- |This function generates the code for a program.
-generate :: Program -> ([ Instruction ])
-generate prog = undefined --In this function, add code to set the stack pointer, and jump to the main function.
+generate :: Program -> [ Instruction ]
+generate prog = sp_inst ++ jmp_insts ++ insts
+  where s'        = generateProgram prog emptyProgramState
+        insts     = progMem s'
+        jmp_insts = [ LDC (resReg s') (Right "main")
+                    , JMP (resReg s') ]
+        sp_inst   = [ LDC sp (Left $ length (progMem s')
+                                   + length (globMem s')
+                                   + length jmp_insts   ) ]
+        --TODO: Add offset to all memory accesses.
 
-generateProgram :: ProgramState -> Program -> ProgramState
-generateProgram = undefined
+-- |This function generates the program state for a program.
+generateProgram :: Program -> ProgramState -> ProgramState
+generateProgram prog s = foldr generateFunction s prog
 
+-- |This function generates the program state for a function.
 generateFunction :: Function -> ProgramState -> ProgramState
-generateFunction = undefined
+generateFunction func s = undefined
+-- Need to check that all return statements are of the correct type.
 
+-- |This function generates the program state for a statement.
 generateStatement :: Statement -> ProgramState -> ProgramState
-generateStatement = undefined
+generateStatement (Declaration d ) s = generateDecVar     d  s
+generateStatement (Assignment  a ) s = generateAssign     a  s
+generateStatement (AssignDeclr ad) s = generateAssignDecl ad s
+generateStatement (Cond  ex s1 s2) s = undefined --TODO
+generateStatement (While ex s1   ) s = undefined --TODO
+generateStatement (For ad ex a st) s = undefined --TODO
+generateStatement (FunctionCall f) s = generateFuncCall   f  s
+generateStatement (Return      ex) s = undefined --TODO
 
-generateDecVar :: ProgramState -> DecVar -> ProgramState
+generateDecVar :: DecVar -> ProgramState -> ProgramState
 generateDecVar = undefined
 
-generateAssVar :: ProgramState -> AssVar -> ProgramState
+generateAssVar :: AssVar -> ProgramState -> ProgramState
 generateAssVar = undefined
 
-generateAssign :: ProgramState -> Assign -> ProgramState
+generateAssign :: Assign -> ProgramState -> ProgramState
 generateAssign = undefined
 
-generateAssignDecl :: ProgramState -> AssignDecl -> ProgramState
+generateAssignDecl :: AssignDecl -> ProgramState -> ProgramState
 generateAssignDecl = undefined
 
-generateFuncCall :: ProgramState -> FuncCall -> ProgramState
+generateFuncCall :: FuncCall -> ProgramState -> ProgramState
 generateFuncCall = undefined
 
-generateExpression :: ProgramState -> Expression -> ProgramState
-generateExpression s e = case e of
-  (TRUE    ) -> genConst s 1
-  (FALSE   ) -> genConst s 0
-  (Const i ) -> genConst s i
-  (Func  fc) -> generateFuncCall s fc
-  (Var (AssVar i mex)) -> undefined --TODO
-  (Add e1 e2) -> genBin s ADD e1 e2
-  (Sub e1 e2) -> genBin s SUB e1 e2
-  (Mul e1 e2) -> genBin s MUL e1 e2
-  (Div e1 e2) -> genBin s DIV e1 e2
-  (Eq  e1 e2) -> undefined --TODO
-  (Lt  e1 e2) -> undefined --TODO
-  (Gt  e1 e2) -> undefined --TODO
-  (Lte e1 e2) -> undefined --TODO
-  (Gte e1 e2) -> undefined --TODO
-  (Neg e1   ) -> genUni s NOT e1
-  (And e1 e2) -> genBin s AND e1 e2
-  (Or  e1 e2) -> genBin s OR  e1 e2
+-- resReg in output state is the register that the result is stored in.
+generateExpression :: Expression -> ProgramState -> ProgramState
+generateExpression e s = case e of
+  (TRUE       ) -> genConst 1 s
+  (FALSE      ) -> genConst 0 s
+  (Const i    ) -> genConst i s
+  (Func  fc   ) -> generateFuncCall fc s
+  (Var   v    ) -> genVar   v s
+  (Add   e1 e2) -> genBin ADD e1 e2 s
+  (Sub   e1 e2) -> genBin SUB e1 e2 s
+  (Mul   e1 e2) -> genBin MUL e1 e2 s
+  (Div   e1 e2) -> genBin DIV e1 e2 s
+  (Eq    e1 e2) -> genBin CEQ e1 e2 s
+  (Lt    e1 e2) -> genUni NOT (Or (Eq e1 e2) (Gt e1 e2)) s
+  (Gt    e1 e2) -> genBin CGT e1 e2 s
+  (Lte   e1 e2) -> genUni NOT (Gt e1 e2) s
+  (Gte   e1 e2) -> genUni NOT (Lt e1 e2) s
+  (Neg   e1   ) -> genUni NOT e1    s
+  (And   e1 e2) -> genBin AND e1 e2 s
+  (Or    e1 e2) -> genBin OR  e1 e2 s
 
 -- |This function updates @s@ with the instructions for loading the constant
 --  @i@ into a register.
-genConst :: ProgramState -> Int -> ProgramState
-genConst s i = s { progMem  = insts ++ [ inst ]
-                 , availReg = r'
+genConst :: Int -> ProgramState -> ProgramState
+genConst i s = s { progMem = insts ++ [ inst ]
+                 , resReg  = r'
                  }
-  where r'    = availReg s + 1
+  where r'    = resReg s + 1
         insts = progMem s
         inst  = LDC r' (Left i)
 
+-- |This function updates @s@ with the instructions for reading the value of
+--  the variable @i@.
+genVar :: AssVar -> ProgramState -> ProgramState
+genVar (AssVar i mex) s = s' { progMem = insts ++ insts'
+                             , resReg  = r + 3
+                             }
+  where ex     = fromMaybe (Const 0) mex
+        s'     = generateExpression ex s
+        insts  = progMem s'
+        r      = resReg s'
+        insts' = [ LDC (r + 1) (Left $ extractVAddress (vars s') i)
+                 , ADD (r + 2) r (r + 1)
+                 , LDM (r + 3) (r + 2)
+                 ]
+
 -- |This function updates @s@ with the instructions for executing @e@ and
 --  performing @cons@ on the result.
-genUni :: ProgramState -> UniOpCons -> Expression -> ProgramState
-genUni s cons e = s' { progMem  = insts ++ [ inst ]
-                     , availReg = r'
+genUni :: UniOpCons -> Expression -> ProgramState -> ProgramState
+genUni cons e s = s' { progMem = insts ++ [ inst ]
+                     , resReg  = r'
                      }
-  where s' = generateExpression s e
-        r' = availReg s' + 1
+  where s' = generateExpression e s
+        r' = resReg s' + 1
         insts = progMem s'
-        inst  = cons r' (availReg s')
+        inst  = cons r' (resReg s')
 
 -- |This function updates @s@ with the instructions for executing @e1@ and @e2@
 --  and performing @cons@ on the result.
-genBin :: ProgramState -> BinOpCons -> Expression -> Expression -> ProgramState
-genBin s cons e1 e2 = s' { progMem  = insts ++ [ inst ]
-                         , availReg = r'
+genBin :: BinOpCons -> Expression -> Expression -> ProgramState -> ProgramState
+genBin cons e1 e2 s = s' { progMem = insts ++ [ inst ]
+                         , resReg  = r'
                          }
-  where s'    = generateExpression s  e1
-        s''   = generateExpression s' e2
-        r'    = availReg s'' + 1
+  where s'    = generateExpression e1 s
+        s''   = generateExpression e2 s'
+        r'    = resReg s'' + 1
         insts = progMem s''
-        inst  = cons r' (availReg s') (availReg s'')
+        inst  = cons r' (resReg s') (resReg s'')
 
 -- |This function puts all function identifiers with their associated argument
 --  numbers into the FunctionMap.
@@ -154,42 +186,32 @@ expressionType f v e = case e of
   (Var  (AssVar   i ex)) -> if isNothing ex || expressionType f v (fromJust ex) == INT
                               then extractVType v i
                               else error $ "Array index expression was not of type INT."
-  (Add e1 e2) -> if expressionType f v e1 == INT && expressionType f v e2 == INT
-                   then INT
-                   else error $ "Operand(s) to Add are not of type INT."
-  (Sub e1 e2) -> if expressionType f v e1 == INT && expressionType f v e2 == INT
-                   then INT
-                   else error $ "Operand(s) to Sub are not of type INT."
-  (Mul e1 e2) -> if expressionType f v e1 == INT && expressionType f v e2 == INT
-                   then INT
-                   else error $ "Operand(s) to Mul are not of type INT."
-  (Div e1 e2) -> if expressionType f v e1 == INT && expressionType f v e2 == INT
-                   then INT
-                   else error $ "Operand(s) to Div are not of type INT."
+  (Add e1 e2) -> checkBinTypes f v e1 e2 "Add" INT INT
+  (Sub e1 e2) -> checkBinTypes f v e1 e2 "Sub" INT INT
+  (Mul e1 e2) -> checkBinTypes f v e1 e2 "Mul" INT INT
+  (Div e1 e2) -> checkBinTypes f v e1 e2 "Div" INT INT
   (Eq  e1 e2) -> if expressionType f v e1 == expressionType f v e2
                    then BOOL
                    else error $ "Type of operands to Eq do not match."
-  (Lt  e1 e2) -> if expressionType f v e1 == INT && expressionType f v e2 == INT
-                   then BOOL
-                   else error $ "Operand(s) to Lt are not of type INT."
-  (Gt  e1 e2) -> if expressionType f v e1 == INT && expressionType f v e2 == INT
-                   then BOOL
-                   else error $ "Operand(s) to Gt are not of type INT."
-  (Lte e1 e2) -> if expressionType f v e1 == INT && expressionType f v e2 == INT
-                   then BOOL
-                   else error $ "Operand(s) to Lte are not of type INT."
-  (Gte e1 e2) -> if expressionType f v e1 == INT && expressionType f v e2 == INT
-                   then BOOL
-                   else error $ "Operand(s) to Gte are not of type INT."
+  (Lt  e1 e2) -> checkBinTypes f v e1 e2 "Lt"  INT BOOL
+  (Gt  e1 e2) -> checkBinTypes f v e1 e2 "Gt"  INT BOOL
+  (Lte e1 e2) -> checkBinTypes f v e1 e2 "Lte" INT BOOL
+  (Gte e1 e2) -> checkBinTypes f v e1 e2 "Gte" INT BOOL
   (Neg ex   ) -> if expressionType f v ex == BOOL
                    then BOOL
                    else error $ "Operand to Neg is not of type BOOL."
-  (And e1 e2) -> if expressionType f v e1 == BOOL && expressionType f v e2 == BOOL
-                   then BOOL
-                   else error $ "Operand(s) to And are not of type BOOL."
-  (Or  e1 e2) -> if expressionType f v e1 == BOOL && expressionType f v e2 == BOOL
-                   then BOOL
-                   else error $ "Operand(s) to Or are not of type BOOL."
+  (And e1 e2) -> checkBinTypes f v e1 e2 "And" BOOL BOOL
+  (Or  e1 e2) -> checkBinTypes f v e1 e2 "Or"  BOOL BOOL
+
+-- |This function checks that the @e1@ and @e2@ have the same type, @check_t@.
+--  If they do, then @return_t@ is returned, otherwise 'error' is called,
+--  using @operator@ to describe where the problem is.
+checkBinTypes :: FunctionMap -> VariableMap ->
+                 Expression  -> Expression  -> String -> Type -> Type -> Type
+checkBinTypes f v e1 e2 operator check_t return_t =
+  if expressionType f v e1 == check_t && expressionType f v e2 == check_t
+    then return_t
+    else error $ "Operand(s) to " ++ operator ++ " are not of type " ++ show check_t ++ "."
 
 -- |This function returns the type associated with @i@. If @i@ is not in the
 --  FunctionMap @f@, 'error' is called.
