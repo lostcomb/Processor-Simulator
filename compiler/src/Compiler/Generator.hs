@@ -5,25 +5,25 @@ module Compiler.Generator
   ( generate
   ) where
 
+import Compiler.Types
+import Compiler.Analyse
 import Compiler.SyntaxTree
 import Assembly.Instruction
 
 import Data.Maybe
 import qualified Data.Map.Strict as Map
 
-type ArgNo        = Int
-type Address      = Int
-type SPOffset     = Constant
-type FunctionMap  = Map.Map Identifier (Type, [ Type ])
-type VariableMap  = Map.Map Identifier (Type, Address)
-type UniOpCons    = Register -> Register -> Instruction
-type BinOpCons    = Register -> Register -> Register -> Instruction
+data StackFrame   = StackFrame   { vars         :: VariableMap
+                                 , nextFramePos :: SPOffset
+                                 , push         :: DecVar -> ProgramState -> ProgramState
+                                 , assign       :: Assign -> ProgramState -> ProgramState
+                                 , value        :: AssVar -> ProgramState -> ProgramState
+                                 }
 
 data ProgramState = ProgramState { progMem :: [ Instruction ]
-                                 , globMem :: [ Identifier  ]
                                  , functs  :: FunctionMap
-                                 , vars    :: VariableMap
                                  , resReg  :: Register
+                                 , stack   :: StackFrame
                                  }
 
 -- |This constant defines the register that is used for the program counter.
@@ -34,14 +34,222 @@ pc = 0
 sp :: Register
 sp = pc + 1
 
+-- |This constant defines an empty StackFrame.
+newStackFrame :: StackFrame
+newStackFrame = StackFrame { vars         = Map.empty
+                           , nextFramePos = 0
+                           , push         = pushF
+                           , assign       = assignF
+                           , value        = valueF
+                           }
+  where locF :: AssVar -> ProgramState -> ProgramState
+        locF (AssVar i mex) ps = ps'
+          { progMem = progMem ps' ++ [ LDC (r + 1) (Left var_offset)
+                                     , ADD (r + 2) (r + 1) r
+                                     , ADD (r + 3) (r + 2) sp
+                                     ]
+          , resReg  = r + 3
+          }
+          where ps'        = generateExpression (fromJust mex) ps
+                var_offset = snd $ Map.findWithDefault (INT, 0) i $ vars $ stack ps'
+                r          = resReg ps'
+        pushF :: DecVar -> ProgramState -> ProgramState
+        pushF   (DecVar t i mex) ps = ps
+          { stack = sf { vars = Map.insert i (t, nextFramePos sf) $ vars sf
+                       , nextFramePos = nextFramePos sf + size
+                       }
+          }
+          where sf           = stack ps
+                (Const size) = fromJust mex
+        assignF :: Assign -> ProgramState -> ProgramState
+        assignF (Assign av ex) ps = ps''
+          { progMem = progMem ps'' ++ [ STM (resReg ps') (resReg ps'') ]
+          }
+          where ps'  = locF av ps
+                ps'' = generateExpression ex ps'
+        valueF :: AssVar -> ProgramState -> ProgramState
+        valueF  av ps = ps
+          { progMem = progMem ps' ++ [ LDM (r + 1) (resReg ps') ]
+          , resReg  = r + 1
+          }
+          where ps' = locF av ps
+                r   = resReg ps'
+
 -- |This constant defines an empty ProgramState.
 emptyProgramState :: ProgramState
 emptyProgramState = ProgramState { progMem = []
-                                 , globMem = []
                                  , functs  = Map.empty
-                                 , vars    = Map.empty
                                  , resReg  = sp + 1
+                                 , stack   = newStackFrame
                                  }
+
+generate :: Program -> [ Instruction ]
+generate = undefined
+
+generateProgram :: Program -> ProgramState -> ProgramState
+generateProgram = undefined
+
+generateFunction :: Function -> ProgramState -> ProgramState
+generateFunction = undefined
+
+generateStatements :: [ Statement ] -> ProgramState -> ProgramState
+generateStatements = flip $ foldr generateStatement
+
+-- |This function generates the program state for a statement.
+generateStatement :: Statement -> ProgramState -> ProgramState
+generateStatement (Declaration d) ps = generateDecVar d ps
+generateStatement (Assignment  a) ps = generateAssign a ps
+generateStatement (AssignDeclr ad) ps = generateAssignDecl ad ps
+generateStatement (Cond  ex s1 s2) ps = ps' { progMem = insts
+                                                      ++ [ BEZ (Right else_l) (resReg ps')
+                                                         ]
+                                                      ++ s1_insts
+                                                      ++ [ LDC (resReg ps''' + 1) (Right end_l)
+                                                         , JMP (resReg ps''' + 1)
+                                                         ]
+                                                      ++ [ LABEL else_l
+                                                         ]
+                                                      ++ s2_insts
+                                                      ++ [ LABEL end_l
+                                                         ]
+                                            , resReg  = (resReg ps''' + 1)
+                                            }
+  where ps'      = generateExpression ex ps
+        insts    = progMem ps'
+        ps''     = generateStatements s1 (ps' { progMem = [] })
+        s1_insts = progMem ps''
+        ps'''    = generateStatements s2 (ps' { progMem = [], resReg = resReg ps'' })
+        s2_insts = progMem ps'''
+        else_l   = "l" ++ show (resReg ps')
+        end_l    = "l" ++ show (resReg ps' + 1)
+generateStatement (While ex st) ps = ps' { progMem = insts
+                                                   ++ [ LABEL start_l
+                                                      ]
+                                                   ++ ex_insts
+                                                   ++ [ BEZ (Right end_l) (resReg ps')
+                                                      ]
+                                                   ++ st_insts
+                                                   ++ [ LDC (resReg ps'' + 1) (Right start_l)
+                                                      , JMP (resReg ps'' + 1)
+                                                      , LABEL end_l
+                                                      ]
+                                         }
+  where insts    = progMem ps
+        ps'      = generateExpression ex (ps { progMem = [] })
+        ex_insts = progMem ps'
+        ps''     = generateStatements st (ps' { progMem = [] })
+        st_insts = progMem ps''
+        start_l  = "l" ++ show (resReg ps')
+        end_l    = "l" ++ show (resReg ps' + 1)
+--generateStatement (For ad ex a st) s = undefined --TODO
+generateStatement (FunctionCall fc) ps = generateFuncCall fc ps
+--generateStatement (Return      ex) s = undefined --TODO
+
+generateDecVar :: DecVar -> ProgramState -> ProgramState
+generateDecVar dv ps = push (stack ps) dv ps
+
+generateAssign :: Assign -> ProgramState -> ProgramState
+generateAssign as ps = assign (stack ps) as ps
+
+generateAssignDecl :: AssignDecl -> ProgramState -> ProgramState
+generateAssignDecl (AssignDecl dv ex) ps = assign sf (Assign (decToAss dv) ex) . push sf dv $ ps
+  where decToAss (DecVar _ i mex) = AssVar i mex
+        sf                        = stack ps
+
+generateExpression :: Expression -> ProgramState -> ProgramState
+generateExpression ex ps = case ex of
+  (TRUE       ) -> genConst 1 ps
+  (FALSE      ) -> genConst 0 ps
+  (Const i    ) -> genConst i ps
+  (Func  fc   ) -> generateFuncCall fc ps
+  (Var   v    ) -> value (stack ps) v ps
+  (Add   e1 e2) -> genBin ADD e1 e2 ps
+  (Sub   e1 e2) -> genBin SUB e1 e2 ps
+  (Mul   e1 e2) -> genBin MUL e1 e2 ps
+  (Div   e1 e2) -> genBin DIV e1 e2 ps
+  (Eq    e1 e2) -> genBin CEQ e1 e2 ps
+  (Lt    e1 e2) -> genUni NOT (Or (Eq e1 e2) (Gt e1 e2)) ps
+  (Gt    e1 e2) -> genBin CGT e1 e2 ps
+  (Lte   e1 e2) -> genUni NOT (Gt e1 e2) ps
+  (Gte   e1 e2) -> genUni NOT (Lt e1 e2) ps
+  (Neg   e1   ) -> genUni NOT e1    ps
+  (And   e1 e2) -> genBin AND e1 e2 ps
+  (Or    e1 e2) -> genBin OR  e1 e2 ps
+
+generateFuncCall :: FuncCall -> ProgramState -> ProgramState
+generateFuncCall (FuncCall i args) ps = ps' { progMem = insts
+                                                      ++ save_registers
+                                                      ++ [ LDC (r + 1) (Left old_sf_size)
+                                                         , ADD sp sp (r + 1)
+                                                         ]
+                                                      ++ push_return_addr
+                                                      ++ push_return_val
+                                                      ++ push_params
+                                                      ++ [ LDC (r + 2) (Right i)
+                                                         , JMP (r + 2)
+                                                         ]
+                                                      ++ load_registers
+                                                      ++ [ LDM (r + 3) return_val
+                                                         ]
+                                                      ++ [ LDC (r + 4) (Left old_sf_size)
+                                                         , SUB sp sp (r + 4)
+                                                         ]
+                                            , resReg  = r + 4
+                                            }
+  where insts = progMem ps
+        ps' = ps { stack = newStackFrame }
+        old_stack = stack ps
+        old_sf_size = nextFramePos old_stack
+        return_val = undefined
+        r = undefined
+        save_registers = undefined--foldr (\i ps -> ) ps [(sp + 1)..15]
+        push_return_addr = undefined
+        push_return_val = undefined
+        push_params = undefined
+        load_registers = undefined--foldr (\i ps -> ) ps [(sp + 1)..15]
+
+-- |This function updates @s@ with the instructions for loading the constant
+--  @i@ into a register.
+genConst :: Int -> ProgramState -> ProgramState
+genConst i ps = ps { progMem = insts ++ [ LDC (r + 1) (Left i) ]
+                   , resReg  = r + 1
+                   }
+  where r     = resReg ps
+        insts = progMem ps
+
+-- |This function updates @ps@ with the instructions for executing @ex@ and
+--  performing @cons@ on the result.
+genUni :: (Register -> Register -> Instruction) ->
+          Expression -> ProgramState -> ProgramState
+genUni cons ex ps = ps' { progMem = insts ++ [ cons (r + 1) r ]
+                        , resReg  = r + 1
+                        }
+  where ps'   = generateExpression ex ps
+        r     = resReg ps'
+        insts = progMem ps'
+
+-- |This function updates @ps@ with the instructions for executing @e1@ and @e2@
+--  and performing @cons@ on the result.
+genBin :: (Register -> Register -> Register -> Instruction) ->
+          Expression -> Expression -> ProgramState -> ProgramState
+genBin cons e1 e2 ps = ps'' { progMem = insts ++ [ cons (r' + 1) r r' ]
+                            , resReg  = r' + 1
+                            }
+  where ps'   = generateExpression e1 ps
+        ps''  = generateExpression e2 ps'
+        r     = resReg ps'
+        r'    = resReg ps''
+        insts = progMem ps''
+
+{-
+-- |This function puts all function identifiers with their associated argument
+--  numbers into the FunctionMap.
+liftFunctions :: Program -> ProgramState -> ProgramState
+liftFunctions p ps = foldr insertFunc ps p
+  where insertFunc (Function t i args) s = s { functs = Map.insert i (t, ats args, ids args) functs s }
+        ats     = map (\(Arg t _) -> t)
+        ids     = map (\(Arg _ i) -> i)
+        err i _ = error "The function " ++ show i ++ " has already been declared."
 
 -- |This function generates the code for a program.
 generate :: Program -> [ Instruction ]
@@ -75,168 +283,41 @@ generateStatement (For ad ex a st) s = undefined --TODO
 generateStatement (FunctionCall f) s = generateFuncCall   f  s
 generateStatement (Return      ex) s = undefined --TODO
 
+-- |This function generates the program state for a declaration statement.
 generateDecVar :: DecVar -> ProgramState -> ProgramState
-generateDecVar = undefined
+generateDecVar (DecVar t i mex) s = s { globMem = globMem'
+                                      , vars    = vars'
+                                      }
+  where (Const c) = extractArrOffset (functs s) (vars s) mex 1
+        vars'     = Map.insert i (t, length $ globMem s) $ vars s
+        globMem'  = globMem s ++ replicate c "i"
 
-generateAssVar :: AssVar -> ProgramState -> ProgramState
-generateAssVar = undefined
-
+-- |This function generates the program state for a variable assignment.
 generateAssign :: Assign -> ProgramState -> ProgramState
-generateAssign = undefined
-
-generateAssignDecl :: AssignDecl -> ProgramState -> ProgramState
-generateAssignDecl = undefined
-
-generateFuncCall :: FuncCall -> ProgramState -> ProgramState
-generateFuncCall = undefined
-
--- resReg in output state is the register that the result is stored in.
-generateExpression :: Expression -> ProgramState -> ProgramState
-generateExpression e s = case e of
-  (TRUE       ) -> genConst 1 s
-  (FALSE      ) -> genConst 0 s
-  (Const i    ) -> genConst i s
-  (Func  fc   ) -> generateFuncCall fc s
-  (Var   v    ) -> genVar   v s
-  (Add   e1 e2) -> genBin ADD e1 e2 s
-  (Sub   e1 e2) -> genBin SUB e1 e2 s
-  (Mul   e1 e2) -> genBin MUL e1 e2 s
-  (Div   e1 e2) -> genBin DIV e1 e2 s
-  (Eq    e1 e2) -> genBin CEQ e1 e2 s
-  (Lt    e1 e2) -> genUni NOT (Or (Eq e1 e2) (Gt e1 e2)) s
-  (Gt    e1 e2) -> genBin CGT e1 e2 s
-  (Lte   e1 e2) -> genUni NOT (Gt e1 e2) s
-  (Gte   e1 e2) -> genUni NOT (Lt e1 e2) s
-  (Neg   e1   ) -> genUni NOT e1    s
-  (And   e1 e2) -> genBin AND e1 e2 s
-  (Or    e1 e2) -> genBin OR  e1 e2 s
-
--- |This function updates @s@ with the instructions for loading the constant
---  @i@ into a register.
-genConst :: Int -> ProgramState -> ProgramState
-genConst i s = s { progMem = insts ++ [ inst ]
-                 , resReg  = r'
-                 }
-  where r'    = resReg s + 1
-        insts = progMem s
-        inst  = LDC r' (Left i)
-
--- |This function updates @s@ with the instructions for reading the value of
---  the variable @i@.
-genVar :: AssVar -> ProgramState -> ProgramState
-genVar (AssVar i mex) s = s' { progMem = insts ++ insts'
-                             , resReg  = r + 3
-                             }
-  where ex     = fromMaybe (Const 0) mex
-        s'     = generateExpression ex s
-        insts  = progMem s'
-        r      = resReg s'
-        insts' = [ LDC (r + 1) (Left $ extractVAddress (vars s') i)
+generateAssign (Assign v@(AssVar i mex) ex) s = s'' { progMem = insts ++ insts'
+                                                    , resReg  = r + 2
+                                                    }
+  where ex'  = checkType (functs s) (vars s) ex (extractVType (vars s) i)
+                        "Type of expression doesn't match type of variable."
+        mex' = extractArrOffset (functs s) (vars s) mex 0
+        s' = generateExpression ex' s
+        ex_res = resReg s'
+        s'' = generateExpression mex' s
+        r = resReg s''
+        insts = progMem s''
+        insts' = [ LDC (r + 1) (Left $ extractVAddress (vars s'') i)
                  , ADD (r + 2) r (r + 1)
-                 , LDM (r + 3) (r + 2)
+                 , STM (r + 2) ex_res
                  ]
 
--- |This function updates @s@ with the instructions for executing @e@ and
---  performing @cons@ on the result.
-genUni :: UniOpCons -> Expression -> ProgramState -> ProgramState
-genUni cons e s = s' { progMem = insts ++ [ inst ]
-                     , resReg  = r'
-                     }
-  where s' = generateExpression e s
-        r' = resReg s' + 1
-        insts = progMem s'
-        inst  = cons r' (resReg s')
+-- |This function generates the program state for a variable declaration
+--  and assignment.
+generateAssignDecl :: AssignDecl -> ProgramState -> ProgramState
+generateAssignDecl (AssignDecl v@(DecVar _ i mex) e) s = s''
+  where s'  = generateDecVar v s
+        s'' = generateAssign (Assign (AssVar i mex) e) s
 
--- |This function updates @s@ with the instructions for executing @e1@ and @e2@
---  and performing @cons@ on the result.
-genBin :: BinOpCons -> Expression -> Expression -> ProgramState -> ProgramState
-genBin cons e1 e2 s = s' { progMem = insts ++ [ inst ]
-                         , resReg  = r'
-                         }
-  where s'    = generateExpression e1 s
-        s''   = generateExpression e2 s'
-        r'    = resReg s'' + 1
-        insts = progMem s''
-        inst  = cons r' (resReg s') (resReg s'')
-
--- |This function puts all function identifiers with their associated argument
---  numbers into the FunctionMap.
-liftFunctions :: FunctionMap -> Program -> FunctionMap
-liftFunctions = foldr (\(Function t ident args _) -> Map.insert ident $ (t, ts args))
-  where ts = map (\(Arg t _) -> t)
-
--- |This function determines whether @e@ is an arithmetic
---  expression, or a boolean expression. It also throws an error if the
---  expression is not valid (i.e. a boolean variable is used in an arithmetic
---  expression).
-expressionType :: FunctionMap -> VariableMap -> Expression -> Type
-expressionType f v e = case e of
-  (TRUE   ) -> BOOL
-  (FALSE  ) -> BOOL
-  (Const i) -> INT
-  (Func (FuncCall i es)) -> if extractFArgTypes f i == map (expressionType f v) es
-                              then extractFType f i
-                              else error $ "Types of arguments to function "
-                                           ++ show i
-                                           ++ " don't match. Expected: "
-                                           ++ show (extractFArgTypes f i)
-                                           ++ ". Found: "
-                                           ++ show (map (expressionType f v) es)
-                                           ++ "."
-  (Var  (AssVar   i ex)) -> if isNothing ex || expressionType f v (fromJust ex) == INT
-                              then extractVType v i
-                              else error $ "Array index expression was not of type INT."
-  (Add e1 e2) -> checkBinTypes f v e1 e2 "Add" INT INT
-  (Sub e1 e2) -> checkBinTypes f v e1 e2 "Sub" INT INT
-  (Mul e1 e2) -> checkBinTypes f v e1 e2 "Mul" INT INT
-  (Div e1 e2) -> checkBinTypes f v e1 e2 "Div" INT INT
-  (Eq  e1 e2) -> if expressionType f v e1 == expressionType f v e2
-                   then BOOL
-                   else error $ "Type of operands to Eq do not match."
-  (Lt  e1 e2) -> checkBinTypes f v e1 e2 "Lt"  INT BOOL
-  (Gt  e1 e2) -> checkBinTypes f v e1 e2 "Gt"  INT BOOL
-  (Lte e1 e2) -> checkBinTypes f v e1 e2 "Lte" INT BOOL
-  (Gte e1 e2) -> checkBinTypes f v e1 e2 "Gte" INT BOOL
-  (Neg ex   ) -> if expressionType f v ex == BOOL
-                   then BOOL
-                   else error $ "Operand to Neg is not of type BOOL."
-  (And e1 e2) -> checkBinTypes f v e1 e2 "And" BOOL BOOL
-  (Or  e1 e2) -> checkBinTypes f v e1 e2 "Or"  BOOL BOOL
-
--- |This function checks that the @e1@ and @e2@ have the same type, @check_t@.
---  If they do, then @return_t@ is returned, otherwise 'error' is called,
---  using @operator@ to describe where the problem is.
-checkBinTypes :: FunctionMap -> VariableMap ->
-                 Expression  -> Expression  -> String -> Type -> Type -> Type
-checkBinTypes f v e1 e2 operator check_t return_t =
-  if expressionType f v e1 == check_t && expressionType f v e2 == check_t
-    then return_t
-    else error $ "Operand(s) to " ++ operator ++ " are not of type " ++ show check_t ++ "."
-
--- |This function returns the type associated with @i@. If @i@ is not in the
---  FunctionMap @f@, 'error' is called.
-extractFType :: FunctionMap -> Identifier -> Type
-extractFType f i = case Map.lookup i f of
-  (Just (t, _)) -> t
-  (Nothing    ) -> error $ "Function " ++ show i ++ " used but not declared."
-
--- |This function returns the list of types associated with the arguments of
---  @i@. If @i@ is not in the FunctionMap @f@, 'error' is called.
-extractFArgTypes :: FunctionMap -> Identifier -> [ Type ]
-extractFArgTypes f i = case Map.lookup i f of
-  (Just (_, ts)) -> ts
-  (Nothing     ) -> error $ "Function " ++ show i ++ " used but not declared."
-
--- |This function returns the type associated with @i@. If @i@ is not in the
---  VariableMap @v@, 'error' is called.
-extractVType :: VariableMap -> Identifier -> Type
-extractVType v i = case Map.lookup i v of
-  (Just (t, _)) -> t
-  (Nothing    ) -> error $ "Variable " ++ show i ++ " used but not declared."
-
--- |This function returns the Address associated with @i@. If @i@ is not in the
---  VariableMap @v@, 'error' is called.
-extractVAddress :: VariableMap -> Identifier -> Address
-extractVAddress v i = case Map.lookup i v of
-  (Just (_, a)) -> a
-  (Nothing    ) -> error $ "Variable " ++ show i ++ " used but not declared."
+-- |This function generates the program state for a function call.
+generateFuncCall :: FuncCall -> ProgramState -> ProgramState
+generateFuncCall (FuncCall i args) s = undefined
+-}

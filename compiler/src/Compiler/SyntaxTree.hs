@@ -1,5 +1,5 @@
 module Compiler.SyntaxTree (
-  -- Type synonym for identifiers.
+  -- Type synonyms.
     Program
   , Identifier
   -- Types used for syntactic constructs in language.
