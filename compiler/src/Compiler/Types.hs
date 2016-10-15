@@ -1,3 +1,5 @@
+-- |This module defines the types used across the project. 
+
 module Compiler.Types
   ( ArgNo
   , Address

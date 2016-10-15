@@ -1,3 +1,5 @@
+-- |This module defines the syntax tree for the c-- language.
+
 module Compiler.SyntaxTree (
   -- Type synonyms.
     Program

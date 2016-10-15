@@ -100,20 +100,21 @@ generateStatement :: Statement -> ProgramState -> ProgramState
 generateStatement (Declaration d) ps = generateDecVar d ps
 generateStatement (Assignment  a) ps = generateAssign a ps
 generateStatement (AssignDeclr ad) ps = generateAssignDecl ad ps
-generateStatement (Cond  ex s1 s2) ps = ps' { progMem = insts
-                                                      ++ [ BEZ (Right else_l) (resReg ps')
-                                                         ]
-                                                      ++ s1_insts
-                                                      ++ [ LDC (resReg ps''' + 1) (Right end_l)
-                                                         , JMP (resReg ps''' + 1)
-                                                         ]
-                                                      ++ [ LABEL else_l
-                                                         ]
-                                                      ++ s2_insts
-                                                      ++ [ LABEL end_l
-                                                         ]
-                                            , resReg  = (resReg ps''' + 1)
-                                            }
+generateStatement (Cond  ex s1 s2) ps = ps'
+  { progMem = insts
+            ++ [ BEZ (Right else_l) (resReg ps')
+               ]
+            ++ s1_insts
+            ++ [ LDC (resReg ps''' + 1) (Right end_l)
+               , JMP (resReg ps''' + 1)
+               ]
+            ++ [ LABEL else_l
+               ]
+            ++ s2_insts
+            ++ [ LABEL end_l
+               ]
+  , resReg  = (resReg ps''' + 1)
+  }
   where ps'      = generateExpression ex ps
         insts    = progMem ps'
         ps''     = generateStatements s1 (ps' { progMem = [] })
@@ -122,18 +123,19 @@ generateStatement (Cond  ex s1 s2) ps = ps' { progMem = insts
         s2_insts = progMem ps'''
         else_l   = "l" ++ show (resReg ps')
         end_l    = "l" ++ show (resReg ps' + 1)
-generateStatement (While ex st) ps = ps' { progMem = insts
-                                                   ++ [ LABEL start_l
-                                                      ]
-                                                   ++ ex_insts
-                                                   ++ [ BEZ (Right end_l) (resReg ps')
-                                                      ]
-                                                   ++ st_insts
-                                                   ++ [ LDC (resReg ps'' + 1) (Right start_l)
-                                                      , JMP (resReg ps'' + 1)
-                                                      , LABEL end_l
-                                                      ]
-                                         }
+generateStatement (While ex st) ps = ps'
+  { progMem = insts
+            ++ [ LABEL start_l
+               ]
+            ++ ex_insts
+            ++ [ BEZ (Right end_l) (resReg ps')
+               ]
+            ++ st_insts
+            ++ [ LDC (resReg ps'' + 1) (Right start_l)
+               , JMP (resReg ps'' + 1)
+               , LABEL end_l
+               ]
+  }
   where insts    = progMem ps
         ps'      = generateExpression ex (ps { progMem = [] })
         ex_insts = progMem ps'
@@ -177,25 +179,26 @@ generateExpression ex ps = case ex of
   (Or    e1 e2) -> genBin OR  e1 e2 ps
 
 generateFuncCall :: FuncCall -> ProgramState -> ProgramState
-generateFuncCall (FuncCall i args) ps = ps' { progMem = insts
-                                                      ++ save_registers
-                                                      ++ [ LDC (r + 1) (Left old_sf_size)
-                                                         , ADD sp sp (r + 1)
-                                                         ]
-                                                      ++ push_return_addr
-                                                      ++ push_return_val
-                                                      ++ push_params
-                                                      ++ [ LDC (r + 2) (Right i)
-                                                         , JMP (r + 2)
-                                                         ]
-                                                      ++ load_registers
-                                                      ++ [ LDM (r + 3) return_val
-                                                         ]
-                                                      ++ [ LDC (r + 4) (Left old_sf_size)
-                                                         , SUB sp sp (r + 4)
-                                                         ]
-                                            , resReg  = r + 4
-                                            }
+generateFuncCall (FuncCall i args) ps = ps'
+  { progMem = insts
+            ++ save_registers
+            ++ [ LDC (r + 1) (Left old_sf_size)
+               , ADD sp sp (r + 1)
+               ]
+            ++ push_return_addr
+            ++ push_return_val
+            ++ push_params
+            ++ [ LDC (r + 2) (Right i)
+               , JMP (r + 2)
+               ]
+            ++ load_registers
+            ++ [ LDM (r + 3) return_val
+               ]
+            ++ [ LDC (r + 4) (Left old_sf_size)
+               , SUB sp sp (r + 4)
+               ]
+  , resReg  = r + 4
+  }
   where insts = progMem ps
         ps' = ps { stack = newStackFrame }
         old_stack = stack ps
@@ -240,84 +243,3 @@ genBin cons e1 e2 ps = ps'' { progMem = insts ++ [ cons (r' + 1) r r' ]
         r     = resReg ps'
         r'    = resReg ps''
         insts = progMem ps''
-
-{-
--- |This function puts all function identifiers with their associated argument
---  numbers into the FunctionMap.
-liftFunctions :: Program -> ProgramState -> ProgramState
-liftFunctions p ps = foldr insertFunc ps p
-  where insertFunc (Function t i args) s = s { functs = Map.insert i (t, ats args, ids args) functs s }
-        ats     = map (\(Arg t _) -> t)
-        ids     = map (\(Arg _ i) -> i)
-        err i _ = error "The function " ++ show i ++ " has already been declared."
-
--- |This function generates the code for a program.
-generate :: Program -> [ Instruction ]
-generate prog = sp_inst ++ jmp_insts ++ insts
-  where s'        = generateProgram prog emptyProgramState
-        insts     = progMem s'
-        jmp_insts = [ LDC (resReg s') (Right "main")
-                    , JMP (resReg s') ]
-        sp_inst   = [ LDC sp (Left $ length (progMem s')
-                                   + length (globMem s')
-                                   + length jmp_insts   ) ]
-        --TODO: Add offset to all memory accesses.
-
--- |This function generates the program state for a program.
-generateProgram :: Program -> ProgramState -> ProgramState
-generateProgram prog s = foldr generateFunction s prog
-
--- |This function generates the program state for a function.
-generateFunction :: Function -> ProgramState -> ProgramState
-generateFunction func s = undefined
--- Need to check that all return statements are of the correct type.
-
--- |This function generates the program state for a statement.
-generateStatement :: Statement -> ProgramState -> ProgramState
-generateStatement (Declaration d ) s = generateDecVar     d  s
-generateStatement (Assignment  a ) s = generateAssign     a  s
-generateStatement (AssignDeclr ad) s = generateAssignDecl ad s
-generateStatement (Cond  ex s1 s2) s = undefined --TODO
-generateStatement (While ex s1   ) s = undefined --TODO
-generateStatement (For ad ex a st) s = undefined --TODO
-generateStatement (FunctionCall f) s = generateFuncCall   f  s
-generateStatement (Return      ex) s = undefined --TODO
-
--- |This function generates the program state for a declaration statement.
-generateDecVar :: DecVar -> ProgramState -> ProgramState
-generateDecVar (DecVar t i mex) s = s { globMem = globMem'
-                                      , vars    = vars'
-                                      }
-  where (Const c) = extractArrOffset (functs s) (vars s) mex 1
-        vars'     = Map.insert i (t, length $ globMem s) $ vars s
-        globMem'  = globMem s ++ replicate c "i"
-
--- |This function generates the program state for a variable assignment.
-generateAssign :: Assign -> ProgramState -> ProgramState
-generateAssign (Assign v@(AssVar i mex) ex) s = s'' { progMem = insts ++ insts'
-                                                    , resReg  = r + 2
-                                                    }
-  where ex'  = checkType (functs s) (vars s) ex (extractVType (vars s) i)
-                        "Type of expression doesn't match type of variable."
-        mex' = extractArrOffset (functs s) (vars s) mex 0
-        s' = generateExpression ex' s
-        ex_res = resReg s'
-        s'' = generateExpression mex' s
-        r = resReg s''
-        insts = progMem s''
-        insts' = [ LDC (r + 1) (Left $ extractVAddress (vars s'') i)
-                 , ADD (r + 2) r (r + 1)
-                 , STM (r + 2) ex_res
-                 ]
-
--- |This function generates the program state for a variable declaration
---  and assignment.
-generateAssignDecl :: AssignDecl -> ProgramState -> ProgramState
-generateAssignDecl (AssignDecl v@(DecVar _ i mex) e) s = s''
-  where s'  = generateDecVar v s
-        s'' = generateAssign (Assign (AssVar i mex) e) s
-
--- |This function generates the program state for a function call.
-generateFuncCall :: FuncCall -> ProgramState -> ProgramState
-generateFuncCall (FuncCall i args) s = undefined
--}

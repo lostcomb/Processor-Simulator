@@ -1,4 +1,5 @@
 {-# LANGUAGE GADTs #-}
+-- |This module defines the simple instruction set.
 
 module Assembly.Instruction
   ( Label
@@ -50,6 +51,7 @@ data Instruction where
   LABEL :: Label                            -> Instruction
   deriving (Eq)
 
+-- |Show the instructions in the suitable representation for the parser.
 instance Show Instruction where
   show i = case i of
     (ADD rd ri rj       ) -> "ADD " ++ showReg rd ++ " " ++ showReg ri ++ " " ++ showReg rj
