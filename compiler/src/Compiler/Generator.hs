@@ -6,7 +6,6 @@ module Compiler.Generator
   ) where
 
 import Compiler.Types
-import Compiler.Analyse
 import Compiler.SyntaxTree
 import Assembly.Instruction
 
@@ -83,15 +82,30 @@ emptyProgramState = ProgramState { progMem = []
                                  , stack   = newStackFrame
                                  }
 
+-- |This function generates the code for the specified program @prog@.
 generate :: Program -> [ Instruction ]
-generate = undefined
+generate prog = progMem $ generateProgram prog emptyProgramState
 
+-- |This function generates the program state for the specified program @prog@.
 generateProgram :: Program -> ProgramState -> ProgramState
-generateProgram = undefined
+generateProgram prog ps = foldr
+  (\f s -> generateFunction f (s { stack = newStackFrame }))
+  (ps { functs = functs' })
+  prog
+  where functs'     = foldr addFunction (functs ps) prog
+        mapArgTypes = map (\(Arg t _) -> t)
+        mapArgIds   = map (\(Arg _ i) -> i)
+        addFunction (Function t i args st) f =
+          Map.insert i (t, mapArgTypes args, mapArgIds args) f
 
+-- |This function generates the program state for the specified function.
 generateFunction :: Function -> ProgramState -> ProgramState
-generateFunction = undefined
+generateFunction (Function t i args st) ps = generateStatements st ps''
+  where ps'  = push (stack ps) (DecVar t "_return" (Just (Const 1)))
+             . push (stack ps) (DecVar INT "_return_addr" (Just (Const 1))) $ ps
+        ps'' = foldr (\(Arg t i) s -> push (stack s) (DecVar t i (Just (Const 1))) s) ps' args
 
+-- |This function generates the program state for the specified statements.
 generateStatements :: [ Statement ] -> ProgramState -> ProgramState
 generateStatements = flip $ foldr generateStatement
 
@@ -143,21 +157,61 @@ generateStatement (While ex st) ps = ps'
         st_insts = progMem ps''
         start_l  = "l" ++ show (resReg ps')
         end_l    = "l" ++ show (resReg ps' + 1)
---generateStatement (For ad ex a st) s = undefined --TODO
+generateStatement (For ad ex a st) ps = ps'
+  { progMem = insts
+            ++ [ LABEL start_l
+               ]
+            ++ ex_insts
+            ++ [ BEZ (Right end_l) (resReg ps'')
+               ]
+            ++ st_insts
+            ++ a_insts
+            ++ [ LDC (resReg ps'' + 1) (Right start_l)
+               , JMP (resReg ps'' + 1)
+               , LABEL end_l
+               ]
+  }
+  where insts = progMem ps
+        ps'      = if isJust ad
+                     then generateAssignDecl (fromJust ad) ps
+                     else ps
+        ps''     = if isJust ex
+                     then generateExpression (fromJust ex) (ps' { progMem = [] })
+                     else ps' { progMem = [] }
+        ex_insts = progMem ps''
+        a_insts  = if isJust a
+                     then progMem $ generateAssign (fromJust a) (ps' { progMem = [] })
+                     else []
+        st_insts = progMem $ generateStatements st (ps' { progMem = [] })
+        start_l  = "l" ++ show (resReg ps')
+        end_l    = "l" ++ show (resReg ps' + 1)
 generateStatement (FunctionCall fc) ps = generateFuncCall fc ps
---generateStatement (Return      ex) s = undefined --TODO
+generateStatement (Return ex) ps = ps''
+  { progMem = progMem ps''
+            ++ [ JMP $ resReg ps''
+               ]
+  }
+  where ps'  = assign (stack ps) (Assign (AssVar "_return" (Just (Const 0))) ex) ps
+        ps'' = value (stack ps') (AssVar "_return_addr" (Just (Const 0))) ps'
 
+-- |This function generates the program state for the specified variable
+--  declaration @dv@.
 generateDecVar :: DecVar -> ProgramState -> ProgramState
 generateDecVar dv ps = push (stack ps) dv ps
 
+-- |This function generates the program state for the specified variable
+--  assignment @as@.
 generateAssign :: Assign -> ProgramState -> ProgramState
 generateAssign as ps = assign (stack ps) as ps
 
+-- |This function generates the program state for the specified variable
+--  declaration and assignment.
 generateAssignDecl :: AssignDecl -> ProgramState -> ProgramState
 generateAssignDecl (AssignDecl dv ex) ps = assign sf (Assign (decToAss dv) ex) . push sf dv $ ps
   where decToAss (DecVar _ i mex) = AssVar i mex
         sf                        = stack ps
 
+-- |This function generates the program state for the specified expression @ex@.
 generateExpression :: Expression -> ProgramState -> ProgramState
 generateExpression ex ps = case ex of
   (TRUE       ) -> genConst 1 ps
@@ -178,38 +232,51 @@ generateExpression ex ps = case ex of
   (And   e1 e2) -> genBin AND e1 e2 ps
   (Or    e1 e2) -> genBin OR  e1 e2 ps
 
+-- |This function generates the program state for the specified function call.
 generateFuncCall :: FuncCall -> ProgramState -> ProgramState
-generateFuncCall (FuncCall i args) ps = ps'
+generateFuncCall (FuncCall i args) ps = ps
   { progMem = insts
-            ++ save_registers
             ++ [ LDC (r + 1) (Left old_sf_size)
                , ADD sp sp (r + 1)
                ]
             ++ push_return_addr
-            ++ push_return_val
             ++ push_params
             ++ [ LDC (r + 2) (Right i)
                , JMP (r + 2)
                ]
-            ++ load_registers
-            ++ [ LDM (r + 3) return_val
-               ]
+            ++ progMem ps'''''
             ++ [ LDC (r + 4) (Left old_sf_size)
                , SUB sp sp (r + 4)
                ]
-  , resReg  = r + 4
+  , resReg  = resReg ps'''''
   }
-  where insts = progMem ps
-        ps' = ps { stack = newStackFrame }
-        old_stack = stack ps
-        old_sf_size = nextFramePos old_stack
-        return_val = undefined
-        r = undefined
-        save_registers = undefined--foldr (\i ps -> ) ps [(sp + 1)..15]
-        push_return_addr = undefined
-        push_return_val = undefined
-        push_params = undefined
-        load_registers = undefined--foldr (\i ps -> ) ps [(sp + 1)..15]
+  where insts            = progMem ps
+        old_sf_size      = nextFramePos $ stack ps
+        ps'              = ps { progMem = [], stack = newStackFrame }
+        (Just (fType, argTypes, argNames)) = Map.lookup i (functs ps)
+        ps''             = push (stack ps')
+                                (DecVar fType "_return" (Just (Const 1)))
+                         . push (stack ps')
+                                (DecVar INT "_ret_addr" (Just (Const 1))) $ ps'
+        ps'''            = assign (stack ps'')
+                                  (Assign (AssVar "_return_addr" (Just (Const 0))) pc_loc) ps''
+        push_return_addr = progMem ps'''
+        params           = zip3 argTypes argNames args
+        ps''''           = foldr (\(t, i, e) s ->
+                             assign (stack s)
+                                    (Assign (AssVar i (Just (Const 0))) e)
+                           . push   (stack s)
+                                    (DecVar t i (Just (Const 1))) $ s) ps' params
+        push_params      = progMem ps''''
+        pc_loc           = Const $ length push_params + 5 --This magic number is
+                                                          --the number of
+                                                          --instructions required
+                                                          --to assign the return
+                                                          --address.
+        r                = resReg ps''''
+        ps'''''          = value (stack ps'''')
+                                 (AssVar "_return_addr" (Just (Const 0)))
+                                 (ps'''' { progMem = [] })
 
 -- |This function updates @s@ with the instructions for loading the constant
 --  @i@ into a register.

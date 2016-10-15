@@ -5,6 +5,7 @@ import Interpreter
 import Assembly.Parser
 
 import Compiler.Parser
+import Compiler.Analyse
 import Compiler.Generator
 
 main :: IO ()
