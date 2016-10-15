@@ -8,8 +8,19 @@ import Compiler.Parser
 import Compiler.Analyse
 import Compiler.Generator
 
+import System.Environment
+
 main :: IO ()
---main = do content <- readFile "test.asm"
---          interpret $ assemble $ parseAssembly content
-main = do source <- readFile "src/tests_c--/syntax.c--"
-          putStrLn $ show $ parseStr source
+main = do args <- getArgs
+          case args of
+            [ file_path ] -> compile file_path
+            _             -> error "Usage: compiler file_path.c--"
+
+compile :: FilePath -> IO ()
+compile file_path = do contents <- readFile file_path
+                       writeFile (file_path ++ ".asm") $ show
+                                                       $ assemble
+                                                       . generate
+                                                       . analyse
+                                                       . parseStr
+                                                       $ contents

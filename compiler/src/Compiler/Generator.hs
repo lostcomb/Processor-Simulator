@@ -16,6 +16,7 @@ data StackFrame   = StackFrame   { vars         :: VariableMap
                                  , nextFramePos :: SPOffset
                                  , push         :: DecVar -> ProgramState -> ProgramState
                                  , assign       :: Assign -> ProgramState -> ProgramState
+                                 , assignPPC    :: Assign -> ProgramState -> ProgramState
                                  , value        :: AssVar -> ProgramState -> ProgramState
                                  }
 
@@ -39,6 +40,7 @@ newStackFrame = StackFrame { vars         = Map.empty
                            , nextFramePos = 0
                            , push         = pushF
                            , assign       = assignF
+                           , assignPPC    = assignPPCF
                            , value        = valueF
                            }
   where locF :: AssVar -> ProgramState -> ProgramState
@@ -66,6 +68,16 @@ newStackFrame = StackFrame { vars         = Map.empty
           }
           where ps'  = locF av ps
                 ps'' = generateExpression ex ps'
+        assignPPCF :: Assign -> ProgramState -> ProgramState
+        assignPPCF (Assign av ex) ps = ps''
+          { progMem = progMem ps'' ++ [ ADD (r + 1) pc r
+                                      , STM (resReg ps') (r + 1)
+                                      ]
+          , resReg  = r + 1
+          }
+          where ps'  = locF av ps
+                ps'' = generateExpression ex ps'
+                r    = resReg ps''
         valueF :: AssVar -> ProgramState -> ProgramState
         valueF  av ps = ps
           { progMem = progMem ps' ++ [ LDM (r + 1) (resReg ps') ]
@@ -84,7 +96,11 @@ emptyProgramState = ProgramState { progMem = []
 
 -- |This function generates the code for the specified program @prog@.
 generate :: Program -> [ Instruction ]
-generate prog = progMem $ generateProgram prog emptyProgramState
+generate prog = [ LDC sp (Left $ length insts + 2)
+                , LDC pc (Right "main")
+                ]
+              ++ insts
+  where insts = progMem $ generateProgram prog emptyProgramState
 
 -- |This function generates the program state for the specified program @prog@.
 generateProgram :: Program -> ProgramState -> ProgramState
@@ -258,8 +274,8 @@ generateFuncCall (FuncCall i args) ps = ps
                                 (DecVar fType "_return" (Just (Const 1)))
                          . push (stack ps')
                                 (DecVar INT "_ret_addr" (Just (Const 1))) $ ps'
-        ps'''            = assign (stack ps'')
-                                  (Assign (AssVar "_return_addr" (Just (Const 0))) pc_loc) ps''
+        ps'''            = assignPPC (stack ps'')
+                                     (Assign (AssVar "_return_addr" (Just (Const 0))) pc_loc) ps''
         push_return_addr = progMem ps'''
         params           = zip3 argTypes argNames args
         ps''''           = foldr (\(t, i, e) s ->

@@ -1,0 +1,5 @@
+Int main () {
+  Int x = y * 4;
+  Int y = 2;
+  return 0;
+}
