@@ -1,3 +1,5 @@
+-- |This module defines an assembler for the simple instruction set.
+
 module Assembler
   ( assemble
   , assembleBinary
@@ -6,73 +8,86 @@ module Assembler
 import Assembly.Instruction
 
 import Data.Bits
-import Data.Word
 import qualified Data.Map.Strict as Map
 
-type LabelMap = Map.Map Label Word32
+type LabelMap = Map.Map Label Constant
 
+-- |This function replaces labels with their physical addresses.
 assemble :: [ Instruction ] -> [ Instruction ]
-assemble insts = map (replaceLabel m) . filter removeLabels $ insts
+assemble insts = map (replaceLabel m) . filter (not . isLabel) $ insts
   where m = findLabels insts
 
-assembleBinary :: [ Instruction ] -> [ Word32 ]
-assembleBinary insts = instsToWord m . filter removeLabels $ insts
+-- |This function replaces labels with their physical addresses and puts the
+--  instructions in to their binary representation.
+assembleBinary :: [ Instruction ] -> [ Constant ]
+assembleBinary insts = instsToBinary m . filter (not . isLabel) $ insts
   where m = findLabels insts
 
-removeLabels :: Instruction -> Bool
-removeLabels (LABEL _) = False
-removeLabels _         = True
+-- |This function returns True if the specified instruction is a LABEL.
+isLabel :: Instruction -> Bool
+isLabel (LABEL _) = True
+isLabel _         = False
 
+-- |This function puts all labels and their addresses in to a Map.
 findLabels :: [ Instruction ] -> LabelMap
 findLabels = fst . foldr updateMap (Map.empty, 0)
 
-updateMap :: Instruction -> (LabelMap, Word32) -> (LabelMap, Word32)
-updateMap (LABEL l) (m, pos) = (Map.insert l (pos + 1) m, pos    )
-updateMap _         (m, pos) = (                       m, pos + 1)
+-- |If the specified instruction is a LABEL, this function updates @m@ with
+--  its address, else it increments @pc@.
+updateMap :: Instruction -> (LabelMap, Constant) -> (LabelMap, Constant)
+updateMap (LABEL l) (m, pc) = (Map.insert l (pc + 1) m, pc    )
+updateMap _         (m, pc) = (                      m, pc + 1)
 
+-- |This function replaces Labels in the instrction @i@ with their physical
+--  addresses.
 replaceLabel :: LabelMap -> Instruction -> Instruction
-replaceLabel m (BEQ (Right l) ri rj) = BEQ (Left $ labelToWord m l) ri rj
-replaceLabel m (BGT (Right l) ri rj) = BGT (Left $ labelToWord m l) ri rj
-replaceLabel m (BEZ (Right l) ri   ) = BEZ (Left $ labelToWord m l) ri
-replaceLabel _ i                     = i
+replaceLabel m i = case i of
+  (LDC rd (Right l)) -> LDC rd (Left $ labelToConst m l)
+  (BEZ (Right l) ri) -> BEZ (Left $ labelToConst m l) ri
+  _                  -> i
 
-instsToWord :: LabelMap -> [ Instruction ] -> [ Word32 ]
-instsToWord m = map (instToWord m)
+-- |This function returns the binary form of the specified instructons.
+instsToBinary :: LabelMap -> [ Instruction ] -> [ Constant ]
+instsToBinary m = map (instToBinary m)
 
-instToWord :: LabelMap -> Instruction -> Word32
+-- |This function returns the binary form of the specified instrcution.
+instToBinary :: LabelMap -> Instruction -> Constant
 -- Arithmetic
-instToWord m (ADD rd         ri rj  ) = argsToWord 1  rd ri rj 0
-instToWord m (SUB rd         ri rj  ) = argsToWord 2  rd ri rj 0
-instToWord m (MUL rd         ri rj  ) = argsToWord 3  rd ri rj 0
-instToWord m (DIV rd         ri rj  ) = argsToWord 4  rd ri rj 0
+instToBinary m (ADD rd ri        rj) = argsToBinary 1  rd ri rj 0
+instToBinary m (SUB rd ri        rj) = argsToBinary 2  rd ri rj 0
+instToBinary m (MUL rd ri        rj) = argsToBinary 3  rd ri rj 0
+instToBinary m (DIV rd ri        rj) = argsToBinary 4  rd ri rj 0
 -- Logic
-instToWord m (AND rd         ri rj  ) = argsToWord 5  rd ri rj 0
-instToWord m (OR  rd         ri rj  ) = argsToWord 6  rd ri rj 0
-instToWord m (XOR rd         ri rj  ) = argsToWord 7  rd ri rj 0
-instToWord m (NOT rd         ri     ) = argsToWord 8  rd ri 0  0
+instToBinary m (AND rd ri        rj) = argsToBinary 5  rd ri rj 0
+instToBinary m (OR  rd ri        rj) = argsToBinary 6  rd ri rj 0
+instToBinary m (NOT rd ri          ) = argsToBinary 8  rd ri 0  0
 -- Control Flow
-instToWord m (JMP            ri     ) = argsToWord 9  0  0  0  ri
-instToWord m (BEQ (Left  c ) ri rj  ) = argsToWord 10 0  ri rj c
-instToWord m (BEQ (Right l ) ri rj  ) = argsToWord 10 0  ri rj (labelToWord m l)
-instToWord m (BGT (Left  c ) ri rj  ) = argsToWord 11 0  ri rj c
-instToWord m (BGT (Right l ) ri rj  ) = argsToWord 11 0  ri rj (labelToWord m l)
-instToWord m (BEZ (Left  c ) ri     ) = argsToWord 12 0  ri 0  c
-instToWord m (BEZ (Right l ) ri     ) = argsToWord 12 0  ri 0  (labelToWord m l)
+instToBinary m (JMP            ri  ) = argsToBinary 9  0  0  0  ri
+instToBinary m (BEZ (Left  c ) ri  ) = argsToBinary 10 0  ri 0  c
+instToBinary m (BEZ (Right l ) ri  ) = argsToBinary 10 0  ri 0  (labelToConst m l)
+-- Comparion
+instToBinary m (CEQ rd ri        rj) = argsToBinary 11 rd ri rj 0
+instToBinary m (CGT rd ri        rj) = argsToBinary 12 rd ri rj 0
 -- Load/Store
-instToWord m (LDC rd               c) = argsToWord 13 rd 0  0  c
-instToWord m (LDM rd         ri     ) = argsToWord 14 rd ri 0  0
-instToWord m (STM ri            rj  ) = argsToWord 15 0  ri rj 0
+instToBinary m (LDC rd (Left  c)   ) = argsToBinary 13 rd 0  0  c
+instToBinary m (LDC rd (Right l)   ) = argsToBinary 13 rd 0  0  (labelToConst m l)
+instToBinary m (LDM rd ri          ) = argsToBinary 14 rd ri 0  0
+instToBinary m (STM ri           rj) = argsToBinary 15 0  ri rj 0
 -- Misc
-instToWord m (NOP                   ) = argsToWord 16 0  0  0  0
+instToBinary m (NOP                ) = argsToBinary 16 0  0  0  0
 
-argsToWord :: Word32 -> Register -> Register -> Register -> Constant -> Word32
-argsToWord a d i j c =   shiftL a 28
-                     .|. shiftL d 24
-                     .|. shiftL i 20
-                     .|. shiftL j 16
-                     .|. c
+-- |This function concatenates all of the components of an instruction in binary
+--  representation.
+argsToBinary :: Constant -> Register -> Register -> Register -> Constant -> Constant
+argsToBinary a d i j c =   shiftL (a .&. 15) 28
+                       .|. shiftL (d .&. 15) 24
+                       .|. shiftL (i .&. 15) 20
+                       .|. shiftL (j .&. 15) 16
+                       .|.        (c .&. 15)
 
-labelToWord :: LabelMap -> Label -> Word32
-labelToWord m l = case Map.lookup l m of
+-- |This function returns the physical address for @l@. If @l@ is not yet
+--  defined, 'error' is called.
+labelToConst :: LabelMap -> Label -> Constant
+labelToConst m l = case Map.lookup l m of
                     Just w  -> w
                     Nothing -> error $ "Undefined Label: " ++ show l ++ "."

@@ -1,7 +1,7 @@
 module Main where
 
---import Assembler
---import Interpreter
+import Assembler
+import Interpreter
 import Assembly.Parser
 
 import Compiler.Parser
