@@ -1,2 +1,2 @@
-.cabal-sandbox
-compiler/dist
+.cabal-sandbox/
+compiler/dist/
