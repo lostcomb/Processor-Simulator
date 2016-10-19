@@ -1,6 +1,7 @@
 # C-- Compiler #
 
 What works:
+
   * Variable assignments.
   * Arrays
   * if statements
@@ -8,9 +9,11 @@ What works:
     given correctly.
 
 What doesn't work yet:
+
   * Function calls
   * while/for loops
 
 Features yet to implement:
+
   * Register Allocation
   * Instruction scheduling
