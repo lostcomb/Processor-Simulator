@@ -15,7 +15,7 @@ type Vars = (FunctionMap, VariableMap)
 
 -- |This function analyses the specified progam @prog@.
 analyse :: Program -> Program
-analyse prog = snd . foldr foldFunction (vs, []) $ prog
+analyse prog = snd . foldl foldFunction (vs, []) $ prog
   where mapArgTypes = map (\(Arg t _) -> t)
         mapArgIds   = map (\(Arg _ i) -> i)
         findF (Function t i args _) f = Map.insertWith
@@ -28,7 +28,7 @@ analyse prog = snd . foldr foldFunction (vs, []) $ prog
                then f
                else error "`main` function should not have any parameters."
         vs = (f', Map.empty)
-        foldFunction func (vs, f) = (vs', f ++ [func'])
+        foldFunction (vs, f) func = (vs', f ++ [func'])
           where (vs', func') = analyseFunction func vs
 
 -- |This function analyses the specified function.
@@ -45,8 +45,8 @@ analyseFunction (Function t i args stmts) vs = (vs', Function t i args stmts'')
 
 -- |This function analyses the specified statments @stmts@.
 analyseStatements :: [ Statement ] -> Identifier -> Vars -> (Vars, [ Statement ])
-analyseStatements stmts i vs = foldr foldStatment (vs, []) stmts
-  where foldStatment stmt (vs, s) = (vs', s ++ [stmt'])
+analyseStatements stmts i vs = foldl foldStatment (vs, []) stmts
+  where foldStatment (vs, s) stmt = (vs', s ++ [stmt'])
           where (vs', stmt') = analyseStatement stmt i vs
 
 -- |This function analyses the specified statment @s@.

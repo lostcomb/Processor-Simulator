@@ -54,9 +54,13 @@ execute s@(State _ mem) insts =
              putStrLn ""
          )
 
+-- |This constant defines the number of registers available.
+registerNo :: Constant
+registerNo = 100
+
 -- |This constant defines an empty set of registers.
 emptyRegisters :: Registers
-emptyRegisters = replicate 0 16
+emptyRegisters = replicate registerNo 0
 
 -- |This constant defines an empty processor state.
 emptyState :: State

@@ -1,5 +1,9 @@
 Int main () {
-  Int x = y * 4;
-  Int y = 2;
+  Int x = 4;
+  Int y = square(x);
   return 0;
+}
+
+Int square (Int x) {
+  return x * x;
 }

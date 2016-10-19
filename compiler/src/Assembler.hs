@@ -30,13 +30,13 @@ isLabel _         = False
 
 -- |This function puts all labels and their addresses in to a Map.
 findLabels :: [ Instruction ] -> LabelMap
-findLabels = fst . foldr updateMap (Map.empty, 0)
+findLabels = fst . foldl updateMap (Map.empty, 0)
 
 -- |If the specified instruction is a LABEL, this function updates @m@ with
 --  its address, else it increments @pc@.
-updateMap :: Instruction -> (LabelMap, Constant) -> (LabelMap, Constant)
-updateMap (LABEL l) (m, pc) = (Map.insert l (pc + 1) m, pc    )
-updateMap _         (m, pc) = (                      m, pc + 1)
+updateMap :: (LabelMap, Constant) -> Instruction -> (LabelMap, Constant)
+updateMap (m, pc) (LABEL l) = (Map.insert l (pc + 1) m, pc    )
+updateMap (m, pc) _         = (                      m, pc + 1)
 
 -- |This function replaces Labels in the instrction @i@ with their physical
 --  addresses.

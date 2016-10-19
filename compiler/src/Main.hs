@@ -18,9 +18,6 @@ main = do args <- getArgs
 
 compile :: FilePath -> IO ()
 compile file_path = do contents <- readFile file_path
-                       writeFile (file_path ++ ".asm") $ show
-                                                       $ assemble
-                                                       . generate
-                                                       . analyse
-                                                       . parseStr
-                                                       $ contents
+                       let insts = assemble . generate . analyse . parseStr $ contents
+                       writeFile (file_path ++ ".asm") $ show insts
+                       interpret insts
