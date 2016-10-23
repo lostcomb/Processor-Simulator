@@ -1,8 +1,7 @@
 -- |This module defines a parser for the c-- language.
 
 module Compiler.Parser
-  ( parseStr
-  , parseFile
+  ( Compiler.Parser.parse
   ) where
 
 import Compiler.SyntaxTree
@@ -12,8 +11,6 @@ import Text.Parsec.Expr
 import Text.Parsec.Token
 import Text.Parsec.String (Parser)
 import Text.Parsec.Language (emptyDef)
-
-import System.IO
 import Data.Functor.Identity
 
 lexer = makeTokenParser languageDef
@@ -22,8 +19,8 @@ languageDef =  emptyDef
   , commentEnd      = "*/"
   , commentLine     = "//"
   , nestedComments  = True
-  , reservedNames   = [ "int"   , "bool"  ,   "void", "True"
-                      , "False" , "if"    , "else"  , "while"
+  , reservedNames   = [ "int"   , "bool"  ,   "void", "true"
+                      , "false" , "if"    , "else"  , "while"
                       , "for"   , "return", "main"
                       ]
   , reservedOpNames = [ "=" , "+" , "-" , "*" , "/" , "=="
@@ -34,16 +31,10 @@ languageDef =  emptyDef
 
 -- |This function returns the result of parsing @str@. Calls 'error' if @str@
 --  is not valid c--.
-parseStr :: String -> Program
-parseStr str = case parse (whiteSpace lexer *> programParser <* eof) "" str of
-                 Left  e -> error $ show e
-                 Right r -> r
-
--- |This function returns the result of parsing the file specified by @path@.
---  Calls 'error' if the file specified by @path@ doesn't contain valid c--.
-parseFile :: FilePath -> IO Program
-parseFile path = do source <- readFile path
-                    return $ parseStr source
+parse :: String -> Program
+parse str = case Text.Parsec.parse (whiteSpace lexer *> programParser <* eof) "" str of
+              Left  e -> error $ show e
+              Right r -> r
 
 -- |A program is made up of a list of functions. There must be a function with
 --  the identifier 'main' as the first function in the file.
@@ -102,8 +93,8 @@ statementParser :: Parser [ Statement ]
 statementParser =   toList <$> try (Declaration <$> typeParser
                                                 <*> variableParser constantParser
                                                 <*  semi lexer)
-                <|> assignmentParser
-                <|> assignDeclParser
+                <|> assignmentParser <* semi lexer
+                <|> assignDeclParser <* semi lexer
                 <|> toList <$> (Cond <$  reserved lexer "if"
                                      <*> parens lexer expressionParser
                                      <*> statementsParser
@@ -113,15 +104,17 @@ statementParser =   toList <$> try (Declaration <$> typeParser
                 <|> toList <$> (While <$  reserved lexer "while"
                                       <*> parens lexer expressionParser
                                       <*> statementsParser)
-                <|> (++) <$  reserved lexer "for"
-                         <*  symbol lexer "("
-                         <*> option [] assignDeclParser
-                         <*  semi lexer
-                         <*> (toList <$> (While <$> option TRUE expressionParser
-                                                <*  semi lexer
-                                                <*> (flip (++) <$> option [] assignmentParser
-                                                               <*  symbol lexer ")"
-                                                               <*> statementsParser)))
+                <|> do reserved lexer "for"
+                       symbol lexer "("
+                       decl  <- option [] assignDeclParser
+                       semi lexer
+                       expr  <- option TRUE expressionParser
+                       semi lexer
+                       ass   <- option [] assignmentParser
+                       symbol lexer ")"
+                       stmts <- statementsParser
+                       return $ decl ++ [ While expr (stmts ++ ass)
+                                        ]
                 <|> toList <$> (FunctionCall <$> funcCallParser
                                              <*  semi lexer)
                 <|> toList <$> (Return <$  reserved lexer "return"
@@ -132,23 +125,23 @@ statementParser =   toList <$> try (Declaration <$> typeParser
         statementsParser = concat <$> (   braces lexer (many statementParser)
                                       <|> count 1 statementParser
                                       )
-        assignmentParser = toList  <$>  try (Assignment   <$> variableParser expressionParser
-                                                          <*  reservedOp lexer "="
-                                                          <*> expressionParser
-                                                          <* semi lexer)
-        assignDeclParser = toList2 <$> (try (Declaration  <$> typeParser
-                                                          <*> variableParser constantParser))
-                                                          <*  reservedOp lexer " ="
-                                   <*> (try (Assignment   <$> variableParser expressionParser
-                                                          <*> expressionParser))
-                                   <*  semi lexer
+        assignmentParser = toList <$> try (Assignment <$> variableParser expressionParser
+                                                      <*  reservedOp lexer "="
+                                                      <*> expressionParser)
+        assignDeclParser = do t    <- typeParser
+                              var  <- variableParser constantParser
+                              reservedOp lexer "="
+                              expr <- expressionParser
+                              return [ Declaration t var
+                                     , Assignment  var expr
+                                     ]
 
 -- |The syntax for a variable is:
 --  <variable> ::= <identifier>
 --             |   <identifier> '[' <expression> ']'
 variableParser :: Parser Expression -> Parser Variable
-variableParser p =   try (Arr <$> identifier lexer <*> p)
-                 <|> try (Var <$> identifier lexer      )
+variableParser p =   try (Arr <$> identifier lexer <*> brackets lexer p)
+                 <|> try (Var <$> identifier lexer                     )
 
 -- |The syntax for a constant is:
 --  <constant> ::= <integer>
@@ -183,8 +176,8 @@ expressionOps = [ [ Infix  (reservedOp lexer "/"  >> return Div) AssocLeft ]
                 ]
 
 expressionTerm :: Parser Expression
-expressionTerm =   reserved lexer "True"  *> pure TRUE
-               <|> reserved lexer "False" *> pure FALSE
+expressionTerm =   reserved lexer "true"  *> pure TRUE
+               <|> reserved lexer "false" *> pure FALSE
                <|> Const . fromIntegral <$> integer lexer
                <|> try (Func <$> funcCallParser                 )
                <|> try (EVar <$> variableParser expressionParser)
