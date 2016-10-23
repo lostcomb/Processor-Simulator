@@ -10,14 +10,26 @@ import Compiler.Generator
 
 import System.Environment
 
-main :: IO ()
-main = do args <- getArgs
-          case args of
-            [ file_path ] -> compile file_path
-            _             -> error "Usage: compiler file_path.c--"
+dispatch :: [ (String, String -> String) ]
+dispatch =  [ ("-parse"   , show .                                 parseStr)
+            , ("-analyse" , show .                       analyse . parseStr)
+            , ("-generate", show .            generate . analyse . parseStr)
+            , ("-assemble", show . assemble . generate . analyse . parseStr)
+            ]
 
-compile :: FilePath -> IO ()
-compile file_path = do contents <- readFile file_path
-                       let insts = assemble . generate . analyse . parseStr $ contents
-                       writeFile (file_path ++ ".asm") $ show insts
-                       interpret insts
+main :: IO ()
+main = do (command:args) <- getArgs
+          if command == "-interpret"
+            then readFile (head args) >>= interpret
+                                      .   assemble
+                                      .   generate
+                                      .   analyse
+                                      .   parseStr
+            else exec (lookup command dispatch) args
+  where exec (Just f) (r_p:w_p:_) = do c <- readFile r_p
+                                       writeFile w_p $ f c
+        exec (Just f) (r_p    :_) = do c <- readFile r_p
+                                       putStrLn $ f c
+        exec _ _ = error $  "Usage: compiler (-parse | -analyse | "
+                               ++ "-generate | -assemble | -interpret) "
+                               ++ "file_path.cmm"

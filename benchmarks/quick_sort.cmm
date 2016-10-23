@@ -13,18 +13,18 @@ void main () {
   A[10] = 2;
   A[11] = 212;
 
-  quick_sort(&A, 0, 11);
+  quick_sort(A, 0, 11);
 }
 
-void quick_sort (int &list, int p, int r) {
+void quick_sort (int list[], int p, int r) {
   if (p < r) {
-    int q = partition(&list, p, r);
-    quick_sort(&list, p, q - 1);
-    quick_sort(&list, q + 1, r);
+    int q = partition(list, p, r);
+    quick_sort(list, p, q - 1);
+    quick_sort(list, q + 1, r);
   }
 }
 
-int partition (int &list, int p, int r) {
+int partition (int list[], int p, int r) {
   int tmp;
   int x = list[r];
   int i = p - 1;

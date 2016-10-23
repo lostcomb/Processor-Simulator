@@ -12,7 +12,10 @@ import Assembly.Instruction
 import Data.Maybe
 import qualified Data.Map.Strict as Map
 
-data StackFrame   = StackFrame   { vars         :: VariableMap
+generate :: Program -> [ Instruction ]
+generate = undefined
+
+{-data StackFrame   = StackFrame   { vars         :: VariableMap
                                  , nextFramePos :: SPOffset
                                  , push         :: DecVar -> ProgramState -> ProgramState
                                  , assign       :: Assign -> ProgramState -> ProgramState
@@ -332,3 +335,4 @@ genBin cons e1 e2 ps = ps'' { progMem = insts ++ [ cons (r' + 1) r r' ]
         r     = resReg ps'
         r'    = resReg ps''
         insts = progMem ps''
+-}

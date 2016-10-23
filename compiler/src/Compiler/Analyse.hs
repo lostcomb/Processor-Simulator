@@ -15,7 +15,8 @@ type Vars = (FunctionMap, VariableMap)
 
 -- |This function analyses the specified progam @prog@.
 analyse :: Program -> Program
-analyse prog = snd . foldl foldFunction (vs, []) $ prog
+analyse = undefined
+{-analyse prog = snd . foldl foldFunction (vs, []) $ prog
   where mapArgTypes = map (\(Arg t _) -> t)
         mapArgIds   = map (\(Arg _ i) -> i)
         findF (Function t i args _) f = Map.insertWith
@@ -243,3 +244,4 @@ extractVAddress v i = case Map.lookup i v of
   (Nothing    ) -> error $  "Variable "
                          ++ show i
                          ++ " used but not declared."
+-}

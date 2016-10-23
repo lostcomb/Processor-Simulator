@@ -13,12 +13,12 @@ void main () {
   A[10] = 2;
   A[11] = 212;
 
-  bubble_sort(&A);
+  bubble_sort(A, 12);
 }
 
-void bubble_sort(Int list[12]) {
-  for (int i = 0; i < 10; i = i + 1) {
-    for (int j = 11; j >= i + 1; j = j - 1) {
+void bubble_sort(int list[], int size) {
+  for (int i = 0; i < size - 2; i = i + 1) {
+    for (int j = size - 1; j >= i + 1; j = j - 1) {
       if (list[j] < list[j - 1])
         int tmp = list[j];
         list[j] = list[j - 1];
