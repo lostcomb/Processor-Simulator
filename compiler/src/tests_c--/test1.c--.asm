@@ -1,1 +1,54 @@
-[LDC r1 #62,LDC r52 #4,JMP r52,LDC r3 #1,LDC r4 #2,ADD r5 r4 r3,ADD r6 r5 r1,LDC r7 #4,STM r6 r7,LDC r8 #1,LDC r9 #9,ADD r10 r9 r8,ADD r11 r10 r1,LDC r12 #0,STM r11 r12,LDC r13 #0,LDC r14 #9,ADD r15 r14 r13,ADD r16 r15 r1,LDM r17 r16,LDC r18 #3,ADD r19 r18 r17,ADD r20 r19 r1,LDC r21 #200,STM r20 r21,LDC r22 #0,LDC r23 #1,ADD r24 r23 r22,ADD r25 r24 r1,LDC r26 #0,STM r25 r26,LDC r27 #0,LDC r28 #0,ADD r29 r28 r27,ADD r30 r29 r1,LDM r31 r30,BEZ #62 r31,JMP r31,LDC r32 #0,LDC r33 #1,ADD r34 r33 r32,ADD r35 r34 r1,LDC r36 #0,LDC r37 #2,ADD r38 r37 r36,ADD r39 r38 r1,LDM r40 r39,LDC r41 #0,LDC r42 #2,ADD r43 r42 r41,ADD r44 r43 r1,LDM r45 r44,MUL r46 r40 r45,STM r35 r46,LDC r47 #0,LDC r48 #0,ADD r49 r48 r47,ADD r50 r49 r1,LDM r51 r50,BEZ #62 r51,JMP r51]
+[ LDC r1 #55
+, LDC r34 #4
+, JMP r34
+, LDC r3 #1 //main
+, LDC r4 #2
+, ADD r5 r4 r3
+, ADD r6 r5 r1
+, LDC r7 #0// load i
+, STM r6 r7// store i
+, LDC r8 #0
+, LDC r9 #2
+, ADD r10 r9 r8
+, ADD r11 r10 r1
+, LDM r12 r11// load val of i into r12
+, LDC r13 #6 // load const 6
+, CEQ r14 r12 r13 // compare equality
+, LDC r15 #0
+, LDC r16 #2
+, ADD r17 r16 r15
+, ADD r18 r17 r1
+, LDM r19 r18 // load val of i into r19
+, LDC r20 #6 // load const 6
+, CGT r21 r19 r20 // compare gt
+, OR r22 r14 r21 // or gt and eq
+, NOT r23 r22 // not or
+, BEZ #41 r23
+, LDC r24 #0
+, LDC r25 #2
+, ADD r26 r25 r24
+, ADD r27 r26 r1
+, LDC r28 #0
+, LDC r29 #2
+, ADD r30 r29 r28
+, ADD r31 r30 r1
+, LDM r32 r31
+, LDC r33 #1
+, ADD r34 r32 r33
+, STM r27 r34
+, LDC r35 #10
+, JMP r35
+, LDC r24 #0
+, LDC r25 #1
+, ADD r26 r25 r24
+, ADD r27 r26 r1
+, LDC r28 #0
+, STM r27 r28
+, LDC r29 #0
+, LDC r30 #0
+, ADD r31 r30 r29
+, ADD r32 r31 r1
+, LDM r33 r32
+, BEZ #54 r33
+, JMP r33
+]

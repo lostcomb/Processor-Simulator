@@ -1,15 +1,7 @@
 Int main () {
-  Int x = 4;
-  Int z[6];
   Int i = 0;
-  z[i] = 200;
-  /*while (i < 6) {
-    z[i] = i + 1;
+  while (i < 6) {
     i = i + 1;
-  }*/
+  }
   return 0;
-}
-
-Int square (Int x) {
-  return x * x;
 }

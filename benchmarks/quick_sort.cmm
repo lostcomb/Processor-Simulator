@@ -1,0 +1,43 @@
+void main () {
+  int A[12];
+  A[0]  = 5;
+  A[1]  = 12;
+  A[2]  = 3;
+  A[3]  = 10;
+  A[4]  = 23;
+  A[5]  = 2;
+  A[6]  = 0;
+  A[7]  = 12;
+  A[8]  = 3;
+  A[9]  = 100;
+  A[10] = 2;
+  A[11] = 212;
+
+  quick_sort(&A, 0, 11);
+}
+
+void quick_sort (int &list, int p, int r) {
+  if (p < r) {
+    int q = partition(&list, p, r);
+    quick_sort(&list, p, q - 1);
+    quick_sort(&list, q + 1, r);
+  }
+}
+
+int partition (int &list, int p, int r) {
+  int tmp;
+  int x = list[r];
+  int i = p - 1;
+  for (int j = p; j < r - 1; j = j + 1) {
+    if (list[j] <= x) {
+      i = i + 1;
+      tmp = list[i];
+      list[i] = list[j];
+      list[j] = tmp;
+    }
+  }
+  tmp = list[i + 1];
+  list[i + 1] = list[r];
+  list[r] = tmp;
+  return i + 1;
+}

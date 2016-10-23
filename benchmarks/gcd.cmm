@@ -1,0 +1,18 @@
+void main () {
+  int x = gcd(10, 13);
+}
+
+int gcd (int a, int b) {
+  int t;
+  while (b != 0) {
+    t = b;
+    b = mod(a, b);
+    a = t;
+  }
+  return a;
+}
+
+int mod (int a, int b) {
+  int div = a / b;
+  return a - (div * b);
+}

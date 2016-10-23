@@ -1,0 +1,28 @@
+void main () {
+  int A[12];
+  A[0]  = 5;
+  A[1]  = 12;
+  A[2]  = 3;
+  A[3]  = 10;
+  A[4]  = 23;
+  A[5]  = 2;
+  A[6]  = 0;
+  A[7]  = 12;
+  A[8]  = 3;
+  A[9]  = 100;
+  A[10] = 2;
+  A[11] = 212;
+
+  bubble_sort(&A);
+}
+
+void bubble_sort(Int list[12]) {
+  for (int i = 0; i < 10; i = i + 1) {
+    for (int j = 11; j >= i + 1; j = j - 1) {
+      if (list[j] < list[j - 1])
+        int tmp = list[j];
+        list[j] = list[j - 1];
+        list[j - 1] = tmp;
+    }
+  }
+}
