@@ -5,334 +5,206 @@ module Compiler.Generator
   ( generate
   ) where
 
-import Compiler.Types
+import Data.Maybe (listToMaybe)
 import Compiler.SyntaxTree
 import Assembly.Instruction
 
-import Data.Maybe
-import qualified Data.Map.Strict as Map
+type Size     = Int
+type SPOffset = Int
+type LabelNo  = Int
+type Vars     = [ (Identifier, Register        ) ]
+type Stack    = [ (Identifier, (SPOffset, Size)) ]
 
-generate :: Program -> [ Instruction ]
-generate = undefined
-
-{-data StackFrame   = StackFrame   { vars         :: VariableMap
-                                 , nextFramePos :: SPOffset
-                                 , push         :: DecVar -> ProgramState -> ProgramState
-                                 , assign       :: Assign -> ProgramState -> ProgramState
-                                 , assignPPC    :: Assign -> ProgramState -> ProgramState
-                                 , value        :: AssVar -> ProgramState -> ProgramState
-                                 }
-
-data ProgramState = ProgramState { progMem :: [ Instruction ]
-                                 , functs  :: FunctionMap
-                                 , resReg  :: Register
-                                 , stack   :: StackFrame
-                                 }
-
--- |This constant defines the register that is used for the program counter.
-pc :: Register
+pc, sp :: Register
 pc = 0
+sp = 1
 
--- |This constant defines the register that is used for the stack pointer.
-sp :: Register
-sp = pc + 1
-
--- |This constant defines an empty StackFrame.
-newStackFrame :: StackFrame
-newStackFrame = StackFrame { vars         = Map.empty
-                           , nextFramePos = 0
-                           , push         = pushF
-                           , assign       = assignF
-                           , assignPPC    = assignPPCF
-                           , value        = valueF
-                           }
-  where locF :: AssVar -> ProgramState -> ProgramState
-        locF (AssVar i mex) ps = ps'
-          { progMem = progMem ps' ++ [ LDC (r + 1) (Left var_offset)
-                                     , ADD (r + 2) (r + 1) r
-                                     , ADD (r + 3) (r + 2) sp
-                                     ]
-          , resReg  = r + 3
-          }
-          where ps'        = generateExpression (fromMaybe (Const 0) mex) ps
-                var_offset = snd $ Map.findWithDefault (INT, 0) i $ vars $ stack ps'
-                r          = resReg ps'
-        pushF :: DecVar -> ProgramState -> ProgramState
-        pushF   (DecVar t i mex) ps = ps
-          { stack = sf { vars = Map.insert i (t, nextFramePos sf) $ vars sf
-                       , nextFramePos = nextFramePos sf + size
-                       }
-          }
-          where sf           = stack ps
-                (Const size) = fromJust mex
-        assignF :: Assign -> ProgramState -> ProgramState
-        assignF (Assign av ex) ps = ps''
-          { progMem = progMem ps'' ++ [ STM (resReg ps') (resReg ps'') ]
-          }
-          where ps'  = locF av ps
-                ps'' = generateExpression ex ps'
-        assignPPCF :: Assign -> ProgramState -> ProgramState
-        assignPPCF (Assign av ex) ps = ps''
-          { progMem = progMem ps'' ++ [ ADD (r + 1) pc r
-                                      , STM (resReg ps') (r + 1)
-                                      ]
-          , resReg  = r + 1
-          }
-          where ps'  = locF av ps
-                ps'' = generateExpression ex ps'
-                r    = resReg ps''
-        valueF :: AssVar -> ProgramState -> ProgramState
-        valueF  av ps = ps
-          { progMem = progMem ps' ++ [ LDM (r + 1) (resReg ps') ]
-          , resReg  = r + 1
-          }
-          where ps' = locF av ps
-                r   = resReg ps'
-
--- |This constant defines an empty ProgramState.
-emptyProgramState :: ProgramState
-emptyProgramState = ProgramState { progMem = []
-                                 , functs  = Map.empty
-                                 , resReg  = sp + 1
-                                 , stack   = newStackFrame
-                                 }
-
--- |This function generates the code for the specified program @prog@.
 generate :: Program -> [ Instruction ]
-generate prog = [ LDC sp (Left $ length insts + 2)
-                , LDC (resReg ps + 1) (Right "main")
-                , JMP (resReg ps + 1)
-                ]
-              ++ insts
-              ++ [ LABEL "_end"
-                 ]
-  where ps    = generateProgram prog emptyProgramState
-        insts = progMem ps
+generate (main:funcs) = [ LDC sp (Left 0)
+                        , LDC (sp + 1) (Right "main")
+                        , JMP (sp + 1) ] ++
+                        is ++
+                        [ LABEL "_end" ]
+  where (_, is) = foldl (\(l, is) f -> let (l', is') = genFunction l f
+                                       in  (l', is ++ is')) (genMain 0 main) funcs
+generate _            = error "`main` function not declared."
 
--- |This function generates the program state for the specified program @prog@.
-generateProgram :: Program -> ProgramState -> ProgramState
-generateProgram prog ps = foldl
-  (\s f -> generateFunction f (s { stack = newStackFrame }))
-  (ps { functs = functs' })
-  prog
-  where functs'     = foldr addFunction (functs ps) prog
-        mapArgTypes = map (\(Arg t _) -> t)
-        mapArgIds   = map (\(Arg _ i) -> i)
-        addFunction (Function t i args st) f =
-          Map.insert i (t, mapArgTypes args, mapArgIds args) f
+genMain :: LabelNo -> Function -> (LabelNo, [ Instruction ])
+genMain l (Function _ i _ stmts) = ( l'
+                                   , [ LABEL i ] ++
+                                     is ++
+                                     [ LDC (sp + 1) (Right "_end")
+                                     , JMP (sp + 1) ])
+  where st          = [ ("_return_addr", (1, 1)), ("_return", (0, 1)) ]
+        (l', _, is) = genStatements [] st stmts l
 
--- |This function generates the program state for the specified function.
-generateFunction :: Function -> ProgramState -> ProgramState
-generateFunction (Function t i args st) ps = generateStatements st ps'''
-  where ps'   = ps { progMem = progMem ps ++ [ LABEL i ] }
-        ps''  = push (stack ps') (DecVar t "_return" (Just (Const 1)))
-              . push (stack ps') (DecVar INT "_return_addr" (Just (Const 1))) $ ps'
-        ps''' = foldl (\s (Arg t i) -> push (stack s) (DecVar t i (Just (Const 1))) s) ps'' args
+genFunction :: LabelNo -> Function -> (LabelNo, [ Instruction ])
+genFunction l (Function t i args stmts) = ( l'
+                                          , [ LABEL i ] ++
+                                            is ++
+                                            is' ++
+                                            [ JMP (r - 1) ])
+  where st            =  (reverse . zip (map (\(Arg _ i _) -> i) args)
+                                  $ [(x, 1) | x <- [2..length args + 2]])
+                      ++ [ ("_return_addr", (1, 1)), ("_return", (0, 1)) ]
+        (l', vs, is ) = genStatements [] st stmts l
+        (r , _ , is') = getVar vs st (Var "_return_addr") (sp + 1)
 
--- |This function generates the program state for the specified statements.
-generateStatements :: [ Statement ] -> ProgramState -> ProgramState
-generateStatements = flip $ foldl . flip $ generateStatement
+genStatements :: Vars -> Stack -> [ Statement ] -> LabelNo
+              -> (LabelNo, Vars, [ Instruction ])
+genStatements vs st stmts l = (l', vs', is)
+  where (l', vs', st', is) = foldl genS (l, vs, st, []) stmts
+        genS (l, vs, st, is) s = (_l, _vs, _st, is ++ _is)
+          where (_, _l, _vs, _st, _is) = genStatement vs st s (sp + 1) l
 
--- |This function generates the program state for a statement.
-generateStatement :: Statement -> ProgramState -> ProgramState
-generateStatement (Declaration d) ps = generateDecVar d ps
-generateStatement (Assignment  a) ps = generateAssign a ps
-generateStatement (AssignDeclr ad) ps = generateAssignDecl ad ps
-generateStatement (Cond  ex s1 s2) ps = ps'
-  { progMem = insts
-            ++ [ BEZ (Right else_l) (resReg ps')
-               ]
-            ++ s1_insts
-            ++ [ LDC (resReg ps''' + 1) (Right end_l)
-               , JMP (resReg ps''' + 1)
-               ]
-            ++ [ LABEL else_l
-               ]
-            ++ s2_insts
-            ++ [ LABEL end_l
-               ]
-  , resReg  = (resReg ps''' + 1)
-  }
-  where ps'      = generateExpression ex ps
-        insts    = progMem ps'
-        ps''     = generateStatements s1 (ps' { progMem = [] })
-        s1_insts = progMem ps''
-        ps'''    = generateStatements s2 (ps' { progMem = [], resReg = resReg ps'' })
-        s2_insts = progMem ps'''
-        else_l   = "l" ++ show (resReg ps')
-        end_l    = "l" ++ show (resReg ps' + 1)
-generateStatement (While ex st) ps = ps'
-  { progMem = insts
-            ++ [ LABEL start_l
-               ]
-            ++ ex_insts
-            ++ [ BEZ (Right end_l) (resReg ps')
-               ]
-            ++ st_insts
-            ++ [ LDC (resReg ps'' + 1) (Right start_l)
-               , JMP (resReg ps'' + 1)
-               , LABEL end_l
-               ]
-  }
-  where insts    = progMem ps
-        ps'      = generateExpression ex (ps { progMem = [] })
-        ex_insts = progMem ps'
-        ps''     = generateStatements st (ps' { progMem = [] })
-        st_insts = progMem ps''
-        start_l  = "l" ++ show (resReg ps')
-        end_l    = "l" ++ show (resReg ps' + 1)
-generateStatement (For ad ex a st) ps = ps'
-  { progMem = insts
-            ++ [ LABEL start_l
-               ]
-            ++ ex_insts
-            ++ [ BEZ (Right end_l) (resReg ps'')
-               ]
-            ++ st_insts
-            ++ a_insts
-            ++ [ LDC (resReg ps'' + 1) (Right start_l)
-               , JMP (resReg ps'' + 1)
-               , LABEL end_l
-               ]
-  }
-  where insts = progMem ps
-        ps'      = if isJust ad
-                     then generateAssignDecl (fromJust ad) ps
-                     else ps
-        ps''     = if isJust ex
-                     then generateExpression (fromJust ex) (ps' { progMem = [] })
-                     else ps' { progMem = [] }
-        ex_insts = progMem ps''
-        a_insts  = if isJust a
-                     then progMem $ generateAssign (fromJust a) (ps' { progMem = [] })
-                     else []
-        st_insts = progMem $ generateStatements st (ps' { progMem = [] })
-        start_l  = "l" ++ show (resReg ps')
-        end_l    = "l" ++ show (resReg ps' + 1)
-generateStatement (FunctionCall fc) ps = generateFuncCall fc ps
-generateStatement (Return ex) ps = ps''
-  { progMem = progMem ps''
-            ++ [ BEZ (Right "_end") (resReg ps'')
-               , JMP $ resReg ps''
-               ]
-  }
-  where ps'  = assign (stack ps) (Assign (AssVar "_return" (Just (Const 0))) ex) ps
-        ps'' = value (stack ps') (AssVar "_return_addr" (Just (Const 0))) ps'
+-- |This function generates the instructions and associated state which i
+--  required to generate the instruction for the specified statement.
+genStatement :: Vars -> Stack -> Statement -> Register -> LabelNo
+             -> (Register, LabelNo, Vars, Stack, [ Instruction ])
+genStatement vs st (Declaration t v) r l = (r, l, vs, (i, (off, s)):st, [])
+  where (i, s) = case v of
+                   (Var i          ) -> (i, 1)
+                   (Arr i (Const s)) -> (i, s)
+        off    = case listToMaybe st of
+                   (Just (_, (off, size))) -> off + size
+                   (Nothing              ) -> 0
 
--- |This function generates the program state for the specified variable
---  declaration @dv@.
-generateDecVar :: DecVar -> ProgramState -> ProgramState
-generateDecVar dv ps = push (stack ps) dv ps
+genStatement vs st (Assignment  v e) r l = (r', l, vs', st, is)
+  where (r', vs', is) = setVar vs st v e r
 
--- |This function generates the program state for the specified variable
---  assignment @as@.
-generateAssign :: Assign -> ProgramState -> ProgramState
-generateAssign as ps = assign (stack ps) as ps
+genStatement vs st (Cond e s1 s2) r l = ( r' + 1
+                                        , l' + 2
+                                        , vs'
+                                        , st
+                                        , _is ++
+                                          [ BEZ (Right else_l) (r' - 1) ] ++
+                                          is' ++
+                                          [ LDC r' (Right end_l)
+                                          , JMP r'
+                                          , LABEL else_l ] ++
+                                          is'' ++
+                                          [ LABEL end_l ])
+  where ( r',  _vs , _is  ) = genExpr vs st e r
+        (_l , __vs ,  is' ) = genStatements _vs st s1 l
+        ( l',   vs',  is'') = genStatements __vs st s2 _l
+        else_l = show l'
+        end_l  = show (l' + 1)
 
--- |This function generates the program state for the specified variable
---  declaration and assignment.
-generateAssignDecl :: AssignDecl -> ProgramState -> ProgramState
-generateAssignDecl (AssignDecl dv ex) ps = assign sf (Assign (decToAss dv) ex) . push sf dv $ ps
-  where decToAss (DecVar _ i mex) = AssVar i mex
-        sf                        = stack ps
+genStatement vs st (While e s) r l = ( r' + 1
+                                     , l' + 2
+                                     , vs'
+                                     , st
+                                     , [ LABEL start_l ] ++
+                                       is ++
+                                       [ BEZ (Right end_l) (r' - 1) ] ++
+                                       is' ++
+                                       [ LDC r' (Right start_l)
+                                       , JMP r'
+                                       , LABEL end_l ])
+  where (r', _vs , is ) = genExpr vs st e r
+        (l',  vs', is') = genStatements _vs st s l
+        start_l = show l'
+        end_l   = show (l' + 1)
 
--- |This function generates the program state for the specified expression @ex@.
-generateExpression :: Expression -> ProgramState -> ProgramState
-generateExpression ex ps = case ex of
-  (TRUE       ) -> genConst 1 ps
-  (FALSE      ) -> genConst 0 ps
-  (Const i    ) -> genConst i ps
-  (Func  fc   ) -> generateFuncCall fc ps
-  (Var   v    ) -> value (stack ps) v ps
-  (Add   e1 e2) -> genBin ADD e1 e2 ps
-  (Sub   e1 e2) -> genBin SUB e1 e2 ps
-  (Mul   e1 e2) -> genBin MUL e1 e2 ps
-  (Div   e1 e2) -> genBin DIV e1 e2 ps
-  (Eq    e1 e2) -> genBin CEQ e1 e2 ps
-  (Lt    e1 e2) -> genUni NOT (Or (Eq e1 e2) (Gt e1 e2)) ps
-  (Gt    e1 e2) -> genBin CGT e1 e2 ps
-  (Lte   e1 e2) -> genUni NOT (Gt e1 e2) ps
-  (Gte   e1 e2) -> genUni NOT (Lt e1 e2) ps
-  (Neg   e1   ) -> genUni NOT e1    ps
-  (And   e1 e2) -> genBin AND e1 e2 ps
-  (Or    e1 e2) -> genBin OR  e1 e2 ps
+genStatement vs st (FunctionCall f) r l = (r', l, vs', st, is)
+  where (r', vs', is) = genFuncCall vs st f r
 
--- |This function generates the program state for the specified function call.
-generateFuncCall :: FuncCall -> ProgramState -> ProgramState
-generateFuncCall (FuncCall i args) ps = ps
-  { progMem = insts
-            ++ [ LDC (r + 1) (Left old_sf_size)
-               , ADD sp sp (r + 1)
-               ]
-            ++ push_return_addr
-            ++ push_params
-            ++ [ LDC (r + 2) (Right i)
-               , JMP (r + 2)
-               ]
-            ++ progMem ps'''''
-            ++ [ LDC (r + 4) (Left old_sf_size)
-               , SUB sp sp (r + 4)
-               ]
-  , resReg  = resReg ps'''''
-  }
-  where insts            = progMem ps
-        old_sf_size      = nextFramePos $ stack ps
-        ps'              = ps { progMem = [], stack = newStackFrame }
-        (Just (fType, argTypes, argNames)) = Map.lookup i (functs ps)
-        ps''             = push (stack ps')
-                                (DecVar fType "_return" (Just (Const 1)))
-                         . push (stack ps')
-                                (DecVar INT "_ret_addr" (Just (Const 1))) $ ps'
-        ps'''            = assignPPC (stack ps'')
-                                     (Assign (AssVar "_return_addr" (Just (Const 0))) pc_loc) ps''
-        push_return_addr = progMem ps'''
-        params           = zip3 argTypes argNames args
-        ps''''           = foldl (\s (t, i, e) ->
-                             assign (stack s)
-                                    (Assign (AssVar i (Just (Const 0))) e)
-                           . push   (stack s)
-                                    (DecVar t i (Just (Const 1))) $ s) ps' params
-        push_params      = progMem ps''''
-        pc_loc           = Const $ length push_params + 5 --This magic number is
-                                                          --the number of
-                                                          --instructions required
-                                                          --to assign the return
-                                                          --address.
-        r                = resReg ps''''
-        ps'''''          = value (stack ps'''')
-                                 (AssVar "_return_addr" (Just (Const 0)))
-                                 (ps'''' { progMem = [] })
+genStatement vs st (Return e) r l = (r', l, vs', st, is ++
+                                                     is' ++
+                                                     [ JMP (r' - 1) ])
+  where (_r , _vs , is ) = setVar vs st (Var "_return") e r
+        ( r',  vs', is') = getVar _vs st (Var "_return_addr") _r
 
--- |This function updates @s@ with the instructions for loading the constant
---  @i@ into a register.
-genConst :: Int -> ProgramState -> ProgramState
-genConst i ps = ps { progMem = insts ++ [ LDC (r + 1) (Left i) ]
-                   , resReg  = r + 1
-                   }
-  where r     = resReg ps
-        insts = progMem ps
+genFuncCall :: Vars -> Stack -> FuncCall -> Register -> (Register, Vars, [ Instruction ])
+genFuncCall = undefined
 
--- |This function updates @ps@ with the instructions for executing @ex@ and
---  performing @cons@ on the result.
-genUni :: (Register -> Register -> Instruction) ->
-          Expression -> ProgramState -> ProgramState
-genUni cons ex ps = ps' { progMem = insts ++ [ cons (r + 1) r ]
-                        , resReg  = r + 1
-                        }
-  where ps'   = generateExpression ex ps
-        r     = resReg ps'
-        insts = progMem ps'
+-- |This function generates the instructions to evaluate the expression @e@.
+genExpr :: Vars -> Stack -> Expression -> Register -> (Register, Vars, [ Instruction ])
+genExpr vs st e r = case e of
+  (TRUE     ) -> (r + 1, vs, [ LDC r (Left 1) ])
+  (FALSE    ) -> (r + 1, vs, [ LDC r (Left 0) ])
+  (Const   i) -> (r + 1, vs, [ LDC r (Left i) ])
+  (Func   fn) -> genFuncCall vs st fn r
+  (EVar    v) -> getVar vs st v r
+  (Add e1 e2) -> bin r e1 e2 ADD
+  (Sub e1 e2) -> bin r e1 e2 SUB
+  (Mul e1 e2) -> bin r e1 e2 MUL
+  (Div e1 e2) -> bin r e1 e2 DIV
+  (Eq  e1 e2) -> bin r e1 e2 CEQ
+  (Neq e1 e2) -> genExpr vs st (Neg (Eq e1 e2)) r
+  (Lt  e1 e2) -> bin r e2 e1 CGT
+  (Gt  e1 e2) -> bin r e1 e2 CGT
+  (Lte e1 e2) -> genExpr vs st (Neg (Gt e1 e2)) r
+  (Gte e1 e2) -> genExpr vs st (Neg (Lt e1 e2)) r
+  (Neg ex   ) -> uni r ex    NOT
+  (And e1 e2) -> bin r e1 e2 AND
+  (Or  e1 e2) -> bin r e1 e2 OR
+  where uni r ex    cons = (r'  + 1, vs' , ex_i ++ [ cons r' (r' - 1) ])
+          where (r' , vs' , ex_i) = genExpr vs  st ex r
+        bin r e1 e2 cons = (r'' + 1, vs'', e1_i ++ e2_i ++ [ cons r'' (r' - 1) (r'' - 1) ])
+          where (r' , vs' , e1_i) = genExpr vs  st e1 r
+                (r'', vs'', e2_i) = genExpr vs' st e2 r'
 
--- |This function updates @ps@ with the instructions for executing @e1@ and @e2@
---  and performing @cons@ on the result.
-genBin :: (Register -> Register -> Register -> Instruction) ->
-          Expression -> Expression -> ProgramState -> ProgramState
-genBin cons e1 e2 ps = ps'' { progMem = insts ++ [ cons (r' + 1) r r' ]
-                            , resReg  = r' + 1
-                            }
-  where ps'   = generateExpression e1 ps
-        ps''  = generateExpression e2 ps'
-        r     = resReg ps'
-        r'    = resReg ps''
-        insts = progMem ps''
--}
+-- |This function retrieves the value of the specified variable from the stack.
+--  It first looks in the Vars list to see if the memory location has already
+--  been calculated. If the variable is not in this list, it then calculates the
+--  memory location using the stack information.
+getVar :: Vars -> Stack -> Variable -> Register -> (Register, Vars, [ Instruction ])
+getVar vs st (Var i) r = case lookup i vs of
+  (Just reg) -> (r + 1, vs, [ LDM r reg ])
+  (Nothing ) -> case lookup i st of
+    (Just (off, _)) -> (r + 3, (i, r + 1):vs, [ LDC r (Left off)
+                                              , ADD (r + 1) r sp
+                                              , LDM (r + 2) (r + 1)
+                                              ])
+    (Nothing      ) -> error $  "Variable "
+                             ++ show i
+                             ++ " has not been declared."
+
+getVar vs st (Arr i ex) r = case lookup i vs' of
+  (Just reg) -> (r' + 2, vs, is ++ [ ADD r' reg (r' - 1)
+                                   , LDM (r' + 1) r'
+                                   ])
+  (Nothing ) -> case lookup i st of
+    (Just (off, _)) -> (r' + 4, (i, r' + 1):vs, is ++ [ LDC r' (Left off)
+                                                      , ADD (r' + 1) r' sp
+                                                      , ADD (r' + 2) (r' + 1) (r' - 1)
+                                                      , LDM (r' + 3) (r' + 2)
+                                                      ])
+    (Nothing      ) -> error $  "Array "
+                             ++ show i
+                             ++ " has not been declared."
+  where (r', vs', is) = genExpr vs st ex r
+
+-- |This function sets the value of the specified variable to that of the
+--  specified expression. It first looks in the Vars list to see if the memory
+--  location has already been calculated. If the variable is not in this list,
+--  it then calculates the memory location using the stack information.
+setVar :: Vars -> Stack -> Variable -> Expression -> Register -> (Register, Vars, [ Instruction ])
+setVar vs st (Var i) e r = case lookup i vs of
+  (Just reg) -> (r', vs', is ++ [ STM reg (r' - 1) ])
+  (Nothing ) -> case lookup i st of
+    (Just (off, _)) -> (r' + 2, (i, r' + 1):vs, is ++ [ LDC r' (Left off)
+                                                      , ADD (r' + 1) r' sp
+                                                      , STM (r' + 1) (r' - 1)
+                                                      ])
+    (Nothing      ) -> error $  "Variable "
+                             ++ show i
+                             ++ " has not been declared."
+  where (r', vs', is) = genExpr vs st e r
+
+setVar vs st (Arr i ex) e r = case lookup i vs of
+  (Just reg) -> (r' + 1, vs', is ++ is' ++ [ ADD r' reg (_r - 1)
+                                           , STM r' (r' - 1)
+                                           ])
+  (Nothing ) -> case lookup i st of
+    (Just (off, _)) -> (r' + 3, (i, r' + 1):vs', is ++ is' ++ [ LDC r' (Left off)
+                                                              , ADD (r' + 1) r' sp
+                                                              , ADD (r' + 2) (r' + 1) (_r - 1)
+                                                              , STM (r' + 2) (r' - 1)
+                                                              ])
+    (Nothing      ) -> error $  "Array "
+                             ++ show i
+                             ++ " has not been declared."
+  where (_r, _vs, is ) = genExpr  vs st ex r
+        (r', vs', is') = genExpr _vs st e _r

@@ -15,6 +15,7 @@ dispatch =  [ ("parse"   , show .                                 parse)
             , ("analyse" , show .                       analyse . parse)
             , ("generate", show .            generate . analyse . parse)
             , ("assemble", show . assemble . generate . analyse . parse)
+            , ("assemble_asm", show . assemble . parseAssembly         )
             ]
 
 main :: IO ()
@@ -25,7 +26,11 @@ main = do (command:args) <- getArgs
                                       .   generate
                                       .   analyse
                                       .   parse
-            else exec (lookup command dispatch) args
+            else if command == "interpret_asm"
+              then readFile (head args) >>= interpret
+                                        .   assemble
+                                        .   parseAssembly
+              else exec (lookup command dispatch) args
   where exec (Just f) (r_p:w_p:_) = do c <- readFile r_p
                                        writeFile w_p $ f c
         exec (Just f) (r_p    :_) = do c <- readFile r_p

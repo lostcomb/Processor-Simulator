@@ -10,6 +10,7 @@ import Assembly.Parser
 import Assembly.Instruction
 
 import Data.Bits
+import Data.Word (Word32)
 import qualified Data.Map.Strict as Map
 
 type Value     = Int
@@ -33,26 +34,26 @@ interpretFile path = do raw_insts <- readFile path
 -- |This function executes the list of instructions, updating the state.
 execute :: State -> [ Instruction ] -> IO ()
 execute s@(State _ mem) insts =
-  if length insts > fromIntegral (get_pc s)
-    then (do let inst = insts !! fromIntegral (get_pc s)
-                 ns   = executeInstruction s inst
-             putStr "."
-             execute ns insts
-         )
-    else (do putStrLn ""
-             putStrLn "Result:"
-             putStrLn $ "\tPC: " ++ show (get_pc s)
-             mapM_ (\gpr -> putStrLn $  "\tGPR"
-                                     ++ show gpr
-                                     ++ ": "
-                                     ++ show (get_gpr s gpr)) [0..15]
-             putStrLn "\tMemory:"
-             mapM_ (\(loc, val) -> putStrLn $  "\t\tMEM["
-                                            ++ show loc
-                                            ++ "] = "
-                                            ++ show val) $ Map.assocs mem
-             putStrLn ""
-         )
+  do display s
+     if length insts > fromIntegral (get_pc s)
+       then (do let inst = insts !! fromIntegral (get_pc s)
+                    ns   = executeInstruction s inst
+                _ <- getChar
+                execute ns insts)
+       else putStrLn "Completed."
+
+display :: State -> IO ()
+display s@(State _ mem) = do putStrLn $ "PC: " ++ show (get_pc s)
+                             mapM_ (\gpr -> putStrLn $  "GPR"
+                                                     ++ show gpr
+                                                     ++ ": "
+                                                     ++ show (get_gpr s gpr)) [1..15]
+                             putStrLn ""
+                             mapM_ (\(loc, val) -> putStrLn $  "MEM["
+                                     ++ show loc
+                                     ++ "] = "
+                                     ++ show val) $ Map.assocs mem
+                             putStrLn ""
 
 -- |This constant defines the number of registers available.
 registerNo :: Constant
@@ -76,7 +77,9 @@ executeInstruction s i = case i of
 
   (AND rd ri rj   ) -> inc_pc . set_gpr s rd $ get_gpr s ri .&. get_gpr s rj
   (OR  rd ri rj   ) -> inc_pc . set_gpr s rd $ get_gpr s ri .|. get_gpr s rj
-  (NOT rd ri      ) -> inc_pc . set_gpr s rd $ complement $ get_gpr s ri
+  (NOT rd ri      ) -> inc_pc . set_gpr s rd $ if get_gpr s ri == 0
+                                                 then 1
+                                                 else 0
 
   (JMP ri         ) -> set_pc s $ get_gpr s ri
   (BEZ (Left c) ri) -> if get_gpr s ri == 0

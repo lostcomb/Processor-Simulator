@@ -19,9 +19,10 @@ type Types         = ([ArrayT], [VariableT], [FunctionT], [FunctionArgsT])
 -- |This function analyses the specified progam @prog@.
 analyse :: Program -> Program
 analyse prog = vs'' `seq` prog
-  where vs'  = foldl' (\(a, v, f, fa) (Function t i args stmts) ->
-                                                (a, v, (i, t):f, (i, args):fa))
-                     ([], [], [], []) prog
+  where vs'  = foldl'
+                 (\(a, v, f, fa) (Function t i args _) -> (a, v, (i, t):f, (i, args):fa))
+                 ([], [], [], [])
+                 prog
         vs'' = foldl' analyseFunction vs' prog
 
 -- |This function analyses the specified function.

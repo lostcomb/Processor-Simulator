@@ -4,5 +4,6 @@ void main () {
 
 int factorial (int n) {
   if (n == 0) return 1;
-  return n * factorial(n - 1);
+  int n_ = factorial(n - 1);
+  return n * n_;
 }

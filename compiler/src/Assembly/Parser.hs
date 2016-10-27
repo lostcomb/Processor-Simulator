@@ -27,7 +27,7 @@ languageDef = emptyDef
 -- |This function returns the result of parsing @str@. Calls 'error' if @str@
 --  is not valid assembly.
 parseAssembly :: String -> [ Instruction ]
-parseAssembly str = case parse (whiteSpace lexer >> instructionParser) "" str of
+parseAssembly str = case parse (whiteSpace lexer *> instructionParser <* eof) "" str of
                       Left  e -> error $ show e
                       Right r -> r
 
@@ -41,15 +41,15 @@ parseAssembly str = case parse (whiteSpace lexer >> instructionParser) "" str of
 --                |   <loadStore>
 --                |   <nop>
 instructionParser :: Parser [ Instruction ]
-instructionParser = many ((   labelParser
-                          <|> aluCompParser
-                          <|> notParser
-                          <|> jumpParser
-                          <|> uniCondParser
-                          <|> loadConstParser
-                          <|> loadStoreParser
-                          <|> nopParser
-                          ) <* eof)
+instructionParser = many (   labelParser
+                         <|> aluCompParser
+                         <|> notParser
+                         <|> jumpParser
+                         <|> uniCondParser
+                         <|> loadConstParser
+                         <|> loadStoreParser
+                         <|> nopParser
+                         )
 
 -- |The syntax for a label is:
 --  <label> ::= ':' <identifier>

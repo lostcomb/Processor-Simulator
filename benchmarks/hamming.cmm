@@ -5,7 +5,8 @@ void main () {
 int hamming (int n) {
   int h = 0;
   while (n > 0) {
-    h = h + mod(n, 2);
+    int m = mod(n, 2);
+    h = h + m;
     n = n / 2;
   }
   return h;

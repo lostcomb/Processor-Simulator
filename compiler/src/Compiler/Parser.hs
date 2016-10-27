@@ -19,9 +19,10 @@ languageDef =  emptyDef
   , commentEnd      = "*/"
   , commentLine     = "//"
   , nestedComments  = True
-  , reservedNames   = [ "int"   , "bool"  ,   "void", "true"
-                      , "false" , "if"    , "else"  , "while"
-                      , "for"   , "return", "main"
+  , reservedNames   = [ "int"    , "bool"   , "void"   , "true"
+                      , "false"  , "if"     , "else"   , "while"
+                      , "for"    , "return" , "main"   , "_return"
+                      , "_end"   , "_return_addr"
                       ]
   , reservedOpNames = [ "=" , "+" , "-" , "*" , "/" , "=="
                       , "!=", "<" , ">" , "<=", ">=", "!"
@@ -152,12 +153,18 @@ constantParser = Const . fromIntegral <$> integer lexer
 --  <funcCall> ::= <identifier> '(' [ <expression> { ',' <expression> } ] ')'
 funcCallParser :: Parser FuncCall
 funcCallParser = FuncCall <$> identifier lexer
-                          <*> parens lexer (commaSep lexer expressionParser)
+                          <*> parens lexer (commaSep lexer exprParser)
 
 -- |The precedence of the operators (in descending order) is:
 --  /, *, +, -, ==, !=, <, >, <=, >=, !, &&, ||
+--  An expression can be either a function call, or an arithmetic / boolean
+--  expression where all operands are not function calls.
 expressionParser :: Parser Expression
-expressionParser = buildExpressionParser expressionOps expressionTerm
+expressionParser =   try (Func <$> funcCallParser)
+                 <|> exprParser
+
+exprParser :: Parser Expression
+exprParser = buildExpressionParser expressionOps expressionTerm
 
 expressionOps :: OperatorTable String u Data.Functor.Identity.Identity Expression
 expressionOps = [ [ Infix  (reservedOp lexer "/"  >> return Div) AssocLeft ]
@@ -179,6 +186,5 @@ expressionTerm :: Parser Expression
 expressionTerm =   reserved lexer "true"  *> pure TRUE
                <|> reserved lexer "false" *> pure FALSE
                <|> Const . fromIntegral <$> integer lexer
-               <|> try (Func <$> funcCallParser                 )
-               <|> try (EVar <$> variableParser expressionParser)
-               <|> parens lexer expressionParser
+               <|> try (EVar <$> variableParser exprParser)
+               <|> parens lexer exprParser
