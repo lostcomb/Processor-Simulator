@@ -1,7 +1,7 @@
 {-# LANGUAGE GADTs #-}
 -- |This module defines the simple instruction set.
 
-module Assembly.Instruction
+module Compiler.Instruction
   ( Label
   , Constant
   , Register

@@ -5,7 +5,7 @@ module Compiler.Allocater
   ( allocate
   ) where
 
-import Assembly.Instruction
+import Compiler.Instruction
 
 type Colour = Int
 

@@ -7,7 +7,7 @@ module Compiler.Generator
 
 import Data.Maybe (listToMaybe)
 import Compiler.SyntaxTree
-import Assembly.Instruction
+import Compiler.Instruction
 
 type Size     = Int
 type SPOffset = Int
@@ -123,7 +123,7 @@ genExpr :: Vars -> Stack -> Expression -> Register -> (Register, Vars, [ Instruc
 genExpr vs st e r = case e of
   (TRUE     ) -> (r + 1, vs, [ LDC r (Left 1) ])
   (FALSE    ) -> (r + 1, vs, [ LDC r (Left 0) ])
-  (Const   i) -> (r + 1, vs, [ LDC r (Left i) ])
+  (Const   i) -> (r + 1, vs, [ LDC r (Left $ fromIntegral i) ])
   (Func   fn) -> genFuncCall vs st fn r
   (EVar    v) -> getVar vs st v r
   (Add e1 e2) -> bin r e1 e2 ADD
@@ -153,7 +153,7 @@ getVar :: Vars -> Stack -> Variable -> Register -> (Register, Vars, [ Instructio
 getVar vs st (Var i) r = case lookup i vs of
   (Just reg) -> (r + 1, vs, [ LDM r reg ])
   (Nothing ) -> case lookup i st of
-    (Just (off, _)) -> (r + 3, (i, r + 1):vs, [ LDC r (Left off)
+    (Just (off, _)) -> (r + 3, (i, r + 1):vs, [ LDC r (Left $ fromIntegral off)
                                               , ADD (r + 1) r sp
                                               , LDM (r + 2) (r + 1)
                                               ])
@@ -166,7 +166,7 @@ getVar vs st (Arr i ex) r = case lookup i vs' of
                                    , LDM (r' + 1) r'
                                    ])
   (Nothing ) -> case lookup i st of
-    (Just (off, _)) -> (r' + 4, (i, r' + 1):vs, is ++ [ LDC r' (Left off)
+    (Just (off, _)) -> (r' + 4, (i, r' + 1):vs, is ++ [ LDC r' (Left $ fromIntegral off)
                                                       , ADD (r' + 1) r' sp
                                                       , ADD (r' + 2) (r' + 1) (r' - 1)
                                                       , LDM (r' + 3) (r' + 2)
@@ -184,7 +184,7 @@ setVar :: Vars -> Stack -> Variable -> Expression -> Register -> (Register, Vars
 setVar vs st (Var i) e r = case lookup i vs of
   (Just reg) -> (r', vs', is ++ [ STM reg (r' - 1) ])
   (Nothing ) -> case lookup i st of
-    (Just (off, _)) -> (r' + 2, (i, r' + 1):vs, is ++ [ LDC r' (Left off)
+    (Just (off, _)) -> (r' + 2, (i, r' + 1):vs, is ++ [ LDC r' (Left $ fromIntegral off)
                                                       , ADD (r' + 1) r' sp
                                                       , STM (r' + 1) (r' - 1)
                                                       ])
@@ -198,7 +198,7 @@ setVar vs st (Arr i ex) e r = case lookup i vs of
                                            , STM r' (r' - 1)
                                            ])
   (Nothing ) -> case lookup i st of
-    (Just (off, _)) -> (r' + 3, (i, r' + 1):vs', is ++ is' ++ [ LDC r' (Left off)
+    (Just (off, _)) -> (r' + 3, (i, r' + 1):vs', is ++ is' ++ [ LDC r' (Left $ fromIntegral off)
                                                               , ADD (r' + 1) r' sp
                                                               , ADD (r' + 2) (r' + 1) (_r - 1)
                                                               , STM (r' + 2) (r' - 1)

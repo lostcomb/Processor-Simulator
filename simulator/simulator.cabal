@@ -18,12 +18,6 @@ version:             0.1.0.0
 -- A longer description of the package.
 -- description:
 
--- The license under which the package is released.
-license:             BSD3
-
--- The file containing the license text.
-license-file:        LICENSE
-
 -- The package author(s).
 author:              Julian Loscombe
 

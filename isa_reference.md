@@ -27,7 +27,7 @@ Logic:
     * Binary representation: `0111 dddd iiii 0000 0000 0000 0000 0000`
     * Bit-wise NOT a signed integer.
 
-Control FLow:
+Control Flow:
 
   * *JMP Ri*
     * Binary representation: `1000 0000 iiii 0000 0000 0000 0000 0000`
