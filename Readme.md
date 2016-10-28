@@ -1,6 +1,6 @@
 # Advanced Computer Architecture Processor Simulator #
 
-For the ISA reference look at: `isa_reference.txt`.
+For the ISA reference look in: `isa_reference.txt`.
 
 ## To compile and run the simulator, assembler and compiler: ##
 
