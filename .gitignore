@@ -1,3 +1,4 @@
 .cabal-sandbox/
+assembler/dist/
 compiler/dist/
 simulator/dist/

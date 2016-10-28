@@ -1,7 +1,7 @@
 {-# LANGUAGE GADTs #-}
 -- |This module defines the simple instruction set.
 
-module Assembly.Instruction
+module Assembler.Instruction
   ( Label
   , Constant
   , Register
@@ -18,6 +18,8 @@ type Register  = Word32
 type Offset    = Either Constant Label
 
 data Instruction where
+  -- No operation.
+  NOP   ::                                     Instruction
   -- Rd <- Ri + Rj.
   ADD   :: Register -> Register -> Register -> Instruction
   -- Rd <- Ri - Rj
@@ -46,8 +48,8 @@ data Instruction where
   LDM   :: Register -> Register             -> Instruction
   -- MEM[Ri] <- Rj
   STM   :: Register -> Register             -> Instruction
-  -- No operation.
-  NOP   ::                                     Instruction
+  -- Halts execution.
+  HALT  ::                                     Instruction
   -- Program marker, not to be executed by the processor.
   LABEL :: Label                            -> Instruction
   deriving (Eq)
@@ -77,6 +79,7 @@ instance Show Instruction where
     (STM ri rj          ) -> "STM " ++ showReg ri ++ " " ++ showReg rj
 
     (NOP                ) -> "NOP"
+    (HALT               ) -> "HALT"
 
     (LABEL l            ) -> showLabel l
     where showReg   r = "r" ++ show r

@@ -1,6 +1,7 @@
 module Components.RegisterFile
   ( RegisterFile
   , emptyRegisterFile
+  , getRegisters
   , getRegister
   , setRegister
   ) where
@@ -20,6 +21,9 @@ emptyRegisterFile = Map.fromList [ (R0 , 0), (R1 , 0), (R2 , 0)
                                  , (R12, 0), (R13, 0), (R14, 0)
                                  , (R15, 0)
                                  ]
+
+getRegisters :: RegisterFile -> [ (RegisterName, Word32) ]
+getRegisters = Map.toList
 
 getRegister :: RegisterName -> RegisterFile -> Word32
 getRegister = Map.findWithDefault 0

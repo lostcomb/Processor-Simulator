@@ -32,6 +32,7 @@ data Instruction a where
   Stm  :: a             -> Register -> Register             -> Instruction a
 
   Halt ::                                                      Instruction a
+  deriving (Show, Eq, Read)
 
 instance Functor Instruction where
   fmap f (Add  x rd ri rj) = Add  (f x) rd ri rj

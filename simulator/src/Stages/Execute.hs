@@ -37,11 +37,13 @@ execute' (Or  x (Reg rd) (Reg ri) (Reg rj)) s = updateCycles x . setReg rd (vi .
   where vi = getReg ri s
         vj = getReg rj s
 
-execute' (Not x (Reg rd) (Reg ri)) s = updateCycles x . setReg rd (vi `xor` 0xFFFFFFFF) $ s
+execute' (Not x (Reg rd) (Reg ri)) s = updateCycles x . setReg rd (if vi == 0
+                                                                     then 1
+                                                                     else 0) $ s
   where vi = getReg ri s
 
 execute' (Jmp x (Reg ri)) s = updateCycles x . setReg pc vi $ s
-  where vi = getReg pc s
+  where vi = getReg ri s
 
 execute' (Bez x (Reg ri) c) s = updateCycles x (if vi == 0
                                                   then setReg pc c s

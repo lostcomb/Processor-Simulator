@@ -1,13 +1,17 @@
 module Components.ProcessorState
   ( ProcessorState
   , newProcessorState
+  , getRegisterFile
   , getReg
   , setReg
   , getInstruction
+  , getMemoryContents
   , getMemory
   , setMemory
   , updateCycles
+  , getCycles
   , incExecutedInsts
+  , getExecutedInsts
   , isHalted
   , haltExecution
   ) where
@@ -20,7 +24,7 @@ import Components.Registers
 import Components.RegisterFile
 
 data ProcessorState = ProcessorState
-  { instructions  :: [ Word32 ]
+  { instructions  :: [ Word8 ]
   , memory        :: Map Word32 Word32
   , registers     :: RegisterFile
   , cycles        :: Int
@@ -28,7 +32,7 @@ data ProcessorState = ProcessorState
   , halted        :: Bool
   }
 
-newProcessorState :: [ Word32 ] -> ProcessorState
+newProcessorState :: [ Word8 ] -> ProcessorState
 newProcessorState instructions = ProcessorState
   { instructions  = instructions
   , memory        = Map.empty
@@ -38,14 +42,20 @@ newProcessorState instructions = ProcessorState
   , halted        = False
   }
 
+getRegisterFile :: ProcessorState -> RegisterFile
+getRegisterFile s = registers s
+
 getReg :: RegisterName -> ProcessorState -> Word32
 getReg r s = getRegister r (registers s)
 
 setReg :: RegisterName -> Word32 -> ProcessorState -> ProcessorState
 setReg r v s = s { registers = setRegister r v (registers s) }
 
-getInstruction :: Word32 -> ProcessorState -> Word32
+getInstruction :: Word32 -> ProcessorState -> Word8
 getInstruction i s = genericIndex (instructions s) i
+
+getMemoryContents :: ProcessorState -> [ (Word32, Word32) ]
+getMemoryContents s = Map.toList (memory s)
 
 getMemory :: Word32 -> ProcessorState -> Word32
 getMemory i s = Map.findWithDefault 0 i (memory s)
@@ -56,8 +66,14 @@ setMemory i v s = s { memory = Map.insert i v (memory s) }
 updateCycles :: Int -> ProcessorState -> ProcessorState
 updateCycles o s = s { cycles = (cycles s) + o }
 
+getCycles :: ProcessorState -> Int
+getCycles s = cycles s
+
 incExecutedInsts :: ProcessorState -> ProcessorState
 incExecutedInsts s = s { executedInsts = (executedInsts s) + 1 }
+
+getExecutedInsts :: ProcessorState -> Int
+getExecutedInsts s = executedInsts s
 
 isHalted :: ProcessorState -> Bool
 isHalted s = halted s

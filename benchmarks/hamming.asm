@@ -44,3 +44,4 @@ LDC r12 #0
 LDC r13 #0
 LDC r14 #0
 LDC r15 #0
+HALT

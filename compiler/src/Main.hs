@@ -11,11 +11,12 @@ import Compiler.Generator
 import System.Environment
 
 dispatch :: [ (String, String -> String) ]
-dispatch =  [ ("parse"   , show .                                 parse)
-            , ("analyse" , show .                       analyse . parse)
-            , ("generate", show .            generate . analyse . parse)
-            , ("assemble", show . assemble . generate . analyse . parse)
-            , ("assemble_asm", show . assemble . parseAssembly         )
+dispatch =  [ ("parse"           , show                                       . parse        )
+            , ("analyse"         , show                             . analyse . parse        )
+            , ("generate"        , show                  . generate . analyse . parse        )
+            , ("assemble"        , show . assemble       . generate . analyse . parse        )
+            , ("assemble_asm"    , show . assemble                            . parseAssembly)
+            , ("assemble_asm_bin", show . assembleBinary                      . parseAssembly)
             ]
 
 main :: IO ()
