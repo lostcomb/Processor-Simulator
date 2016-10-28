@@ -35,8 +35,8 @@ findLabels = fst . foldl updateMap (Map.empty, 0)
 -- |If the specified instruction is a LABEL, this function updates @m@ with
 --  its address, else it increments @pc@.
 updateMap :: (LabelMap, Constant) -> Instruction -> (LabelMap, Constant)
-updateMap (m, pc) (LABEL l) = (Map.insert l (pc + 1) m, pc    )
-updateMap (m, pc) _         = (                      m, pc + 1)
+updateMap (m, pc) (LABEL l) = (Map.insert l pc m, pc    )
+updateMap (m, pc) _         = (                m, pc + 1)
 
 -- |This function replaces Labels in the instrction @i@ with their physical
 --  addresses.
@@ -80,11 +80,11 @@ instToBinary m (HALT               ) = argsToBinary 15 0  0  0  0
 -- |This function concatenates all of the components of an instruction in binary
 --  representation.
 argsToBinary :: Constant -> Register -> Register -> Register -> Constant -> Constant
-argsToBinary a d i j c =   shiftL (a .&. 15) 28
-                       .|. shiftL (d .&. 15) 24
-                       .|. shiftL (i .&. 15) 20
-                       .|. shiftL (j .&. 15) 16
-                       .|.        (c .&. 15)
+argsToBinary a d i j c =   shiftL (a .&. 0x0000000F) 28
+                       .|. shiftL (d .&. 0x0000000F) 24
+                       .|. shiftL (i .&. 0x0000000F) 20
+                       .|. shiftL (j .&. 0x0000000F) 16
+                       .|.        (c .&. 0x0000FFFF)
 
 -- |This function returns the physical address for @l@. If @l@ is not yet
 --  defined, 'error' is called.

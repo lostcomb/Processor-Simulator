@@ -92,17 +92,21 @@ SUB r6 r2 r3 ; r6 = j - 1
 LDM r7 r6 ; r7 = MEM[j - 1]
 LDM r8 r2 ; r8 = MEM[j]
 CGT r9 r7 r8
-BEZ :inner_loop_end r9
+BEZ :else r9
 ; If statements
 ADD r10 r8 r15 ; r10 = MEM[j] + 0
 STM r2 r7 ; MEM[j] = MEM[j - 1]
 STM r6 r10 ; MEM[j - 1] = MEM[j]
 
-:inner_loop_end
+:else
 
 
 LDC r7 :inner_loop_start
 JMP r7
 
+:inner_loop_end
+
 LDC r6 :outer_loop_start
 JMP r6
+
+:outer_loop_end

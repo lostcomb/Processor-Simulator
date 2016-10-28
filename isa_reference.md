@@ -32,7 +32,7 @@ Control FLow:
   * *JMP Ri*
     * Binary representation: `1000 0000 iiii 0000 0000 0000 0000 0000`
     * Unconditional jump, PC = Ri.
-  * *BEZ #O, Ri*
+  * *BEZ Ri, #O*
     * Binary representation: `1001 0000 iiii 0000 oooo oooo oooo oooo`
     * Branch, PC = #O if Ri == 0.
 
