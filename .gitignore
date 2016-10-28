@@ -1,4 +1,3 @@
 .cabal-sandbox/
-assembler/dist/
-compiler/dist/
-simulator/dist/
+**/dist/
+**/cabal.sandbox.config
