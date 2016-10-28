@@ -10,7 +10,7 @@ LDC r3 #0
 ; Loop condition
 CEQ r4 r2 r3
 NOT r4 r4
-BEZ :loop_end r4
+BEZ r4 :loop_end
 
 ; Loop body
 ; Set t = b

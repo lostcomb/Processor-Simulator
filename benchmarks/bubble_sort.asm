@@ -75,7 +75,7 @@ LDC r5 #12
 :outer_loop_start
 SUB r6 r5 r4
 CGT r6 r6 r1
-BEZ :outer_loop_end r6
+BEZ r6 :outer_loop_end
 
 ; Set j = size - 1
 SUB r2 r5 r3
@@ -85,14 +85,14 @@ ADD r7 r1 r3 ; i + 1
 CGT r8 r2 r7
 CEQ r9 r2 r7
 OR  r8 r8 r9
-BEZ :inner_loop_end r8
+BEZ r8 :inner_loop_end
 
 ; Inner Loop Body
 SUB r6 r2 r3 ; r6 = j - 1
 LDM r7 r6 ; r7 = MEM[j - 1]
 LDM r8 r2 ; r8 = MEM[j]
 CGT r9 r7 r8
-BEZ :else r9
+BEZ r9 :else
 ; If statements
 ADD r10 r8 r15 ; r10 = MEM[j] + 0
 STM r2 r7 ; MEM[j] = MEM[j - 1]

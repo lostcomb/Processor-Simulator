@@ -11,7 +11,7 @@ LDC r5 #0
 :loop_start
 ; Loop condition
 CGT r4 r1 r2
-BEZ :loop_end r4
+BEZ r4 :loop_end
 
 ; Loop body
 ; Set m = n % 2

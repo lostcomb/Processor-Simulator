@@ -100,8 +100,8 @@ jumpParser = JMP <$ reserved lexer "JMP"
 --  <uniCond> ::= 'BEZ' <offset> <register>
 uniCondParser :: Parser Instruction
 uniCondParser = BEZ <$ reserved lexer "BEZ"
-                    <*> offsetParser
                     <*> registerParser
+                    <*> offsetParser
 
 -- |The syntax for a load constant instruction is:
 --  <loadConst> ::= 'LDC' <register> <offset>

@@ -37,7 +37,7 @@ data Instruction where
   -- PC = Ri
   JMP   :: Register                         -> Instruction
   -- PC = #O if Ri == 0
-  BEZ   :: Offset   -> Register             -> Instruction
+  BEZ   :: Register -> Offset               -> Instruction
   -- Rd <- 1 if Ri == Rj, Rd <- 0 otherwise
   CEQ   :: Register -> Register -> Register -> Instruction
   -- Rd <- 1 if Ri <  Rj, Rd <- 0 otherwise
@@ -67,8 +67,8 @@ instance Show Instruction where
     (NOT rd ri          ) -> "NOT " ++ showReg rd ++ " " ++ showReg ri
 
     (JMP ri             ) -> "JMP " ++ showReg ri
-    (BEZ (Left  c) ri   ) -> "BEZ " ++ showConst c ++ " " ++ showReg ri
-    (BEZ (Right l) ri   ) -> "BEZ " ++ showLabel l ++ " " ++ showReg ri
+    (BEZ ri (Left  c)   ) -> "BEZ " ++ showReg ri ++ " " ++ showConst c
+    (BEZ ri (Right l)   ) -> "BEZ " ++ showReg ri ++ " " ++ showLabel l
 
     (CEQ rd ri rj       ) -> "CEQ " ++ showReg rd ++ " " ++ showReg ri ++ " " ++ showReg rj
     (CGT rd ri rj       ) -> "CGT " ++ showReg rd ++ " " ++ showReg ri ++ " " ++ showReg rj

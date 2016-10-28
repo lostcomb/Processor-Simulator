@@ -43,7 +43,7 @@ updateMap (m, pc) _         = (                m, pc + 1)
 replaceLabel :: LabelMap -> Instruction -> Instruction
 replaceLabel m i = case i of
   (LDC rd (Right l)) -> LDC rd (Left $ labelToConst m l)
-  (BEZ (Right l) ri) -> BEZ (Left $ labelToConst m l) ri
+  (BEZ ri (Right l)) -> BEZ ri (Left $ labelToConst m l)
   _                  -> i
 
 -- |This function returns the binary form of the specified instructons.
@@ -63,8 +63,8 @@ instToBinary m (OR  rd ri        rj) = argsToBinary 6  rd ri rj 0
 instToBinary m (NOT rd ri          ) = argsToBinary 7  rd ri 0  0
 -- Control Flow
 instToBinary m (JMP            ri  ) = argsToBinary 8  0  ri 0  0
-instToBinary m (BEZ (Left  c ) ri  ) = argsToBinary 9  0  ri 0  c
-instToBinary m (BEZ (Right l ) ri  ) = argsToBinary 9  0  ri 0  (labelToConst m l)
+instToBinary m (BEZ ri (Left  c )  ) = argsToBinary 9  0  ri 0  c
+instToBinary m (BEZ ri (Right l )  ) = argsToBinary 9  0  ri 0  (labelToConst m l)
 -- Comparion
 instToBinary m (CEQ rd ri        rj) = argsToBinary 10 rd ri rj 0
 instToBinary m (CGT rd ri        rj) = argsToBinary 11 rd ri rj 0
