@@ -9,12 +9,13 @@ module Assembler.Instruction
   , Instruction(..)
   ) where
 
+import Data.Int
 import Data.Word
 import Data.Either
 
 type Label     = String
-type Constant  = Word32
-type Register  = Word32
+type Constant  = Int16
+type Register  = Word8
 type Offset    = Either Constant Label
 
 data Instruction where
@@ -52,36 +53,4 @@ data Instruction where
   HALT  ::                                     Instruction
   -- Program marker, not to be executed by the processor.
   LABEL :: Label                            -> Instruction
-  deriving (Eq)
-
--- |Show the instructions in the suitable representation for the parser.
-instance Show Instruction where
-  show i = case i of
-    (ADD rd ri rj       ) -> "ADD " ++ showReg rd ++ " " ++ showReg ri ++ " " ++ showReg rj
-    (SUB rd ri rj       ) -> "SUB " ++ showReg rd ++ " " ++ showReg ri ++ " " ++ showReg rj
-    (MUL rd ri rj       ) -> "MUL " ++ showReg rd ++ " " ++ showReg ri ++ " " ++ showReg rj
-    (DIV rd ri rj       ) -> "DIV " ++ showReg rd ++ " " ++ showReg ri ++ " " ++ showReg rj
-
-    (AND rd ri rj       ) -> "AND " ++ showReg rd ++ " " ++ showReg ri ++ " " ++ showReg rj
-    (OR  rd ri rj       ) -> "OR "  ++ showReg rd ++ " " ++ showReg ri ++ " " ++ showReg rj
-    (NOT rd ri          ) -> "NOT " ++ showReg rd ++ " " ++ showReg ri
-
-    (JMP ri             ) -> "JMP " ++ showReg ri
-    (BEZ ri (Left  c)   ) -> "BEZ " ++ showReg ri ++ " " ++ showConst c
-    (BEZ ri (Right l)   ) -> "BEZ " ++ showReg ri ++ " " ++ showLabel l
-
-    (CEQ rd ri rj       ) -> "CEQ " ++ showReg rd ++ " " ++ showReg ri ++ " " ++ showReg rj
-    (CGT rd ri rj       ) -> "CGT " ++ showReg rd ++ " " ++ showReg ri ++ " " ++ showReg rj
-
-    (LDC rd (Left  c)   ) -> "LDC " ++ showReg rd ++ " " ++ showConst c
-    (LDC rd (Right l)   ) -> "LDC " ++ showReg rd ++ " " ++ showLabel l
-    (LDM rd ri          ) -> "LDM " ++ showReg rd ++ " " ++ showReg ri
-    (STM ri rj          ) -> "STM " ++ showReg ri ++ " " ++ showReg rj
-
-    (NOP                ) -> "NOP"
-    (HALT               ) -> "HALT"
-
-    (LABEL l            ) -> showLabel l
-    where showReg   r = "r" ++ show r
-          showLabel l = ":" ++ l
-          showConst c = "#" ++ show c
+  deriving (Show, Eq, Read)

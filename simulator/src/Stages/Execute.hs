@@ -46,7 +46,7 @@ execute' (Jmp x (Reg ri)) s = updateCycles x . setReg pc vi $ s
   where vi = getReg ri s
 
 execute' (Bez x (Reg ri) c) s = updateCycles x (if vi == 0
-                                                  then setReg pc c s
+                                                  then setReg pc (fromIntegral c) s
                                                   else s)
   where vi = getReg ri s
 
@@ -62,13 +62,13 @@ execute' (Cgt x (Reg rd) (Reg ri) (Reg rj)) s = updateCycles x . setReg rd (if v
   where vi = getReg ri s
         vj = getReg rj s
 
-execute' (Ldc x (Reg rd) c) s = updateCycles x . setReg rd c $ s
+execute' (Ldc x (Reg rd) c) s = updateCycles x . setReg rd (fromIntegral c) $ s
 
 execute' (Ldm x (Reg rd) (Reg ri)) s = updateCycles x . setReg rd mem $ s
   where vi  = getReg ri s
-        mem = getMemory vi s
+        mem = getMemory (fromIntegral vi) s
 
-execute' (Stm x (Reg ri) (Reg rj)) s = updateCycles x . setMemory vi vj $ s
+execute' (Stm x (Reg ri) (Reg rj)) s = updateCycles x . setMemory (fromIntegral vi) vj $ s
   where vi = getReg ri s
         vj = getReg rj s
 

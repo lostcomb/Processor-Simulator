@@ -7,9 +7,9 @@ import Compiler.Generator
 import System.Environment
 
 dispatch :: [ (String, String -> String) ]
-dispatch =  [ ("parse"           , show                      . parse)
-            , ("analyse"         , show            . analyse . parse)
-            , ("generate"        , show . generate . analyse . parse)
+dispatch =  [ ("parse"   , show                                    . parse)
+            , ("analyse" , show                          . analyse . parse)
+            , ("generate", unlines . map show . generate . analyse . parse)
             ]
 
 main :: IO ()

@@ -1,0 +1,7 @@
+void main () {
+  int a = const_12();
+}
+
+int const_12 () {
+  return 12;
+}

@@ -1,0 +1,11 @@
+void main () {
+  int a;
+  bool b = true;
+  if (b) a = 2;
+  else a = 5;
+
+  b = false;
+
+  if (b) a = 4;
+  else a = 7;
+}

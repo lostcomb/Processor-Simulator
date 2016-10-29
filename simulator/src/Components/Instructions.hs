@@ -4,10 +4,10 @@ module Components.Instructions
   ( Instruction(..)
   ) where
 
-import Data.Word
+import Data.Int
 import Components.Registers
 
-type Constant = Word32
+type Constant = Int16
 
 data Instruction a where
   Nop  :: a                                                 -> Instruction a

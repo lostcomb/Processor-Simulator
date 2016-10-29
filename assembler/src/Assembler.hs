@@ -8,6 +8,7 @@ module Assembler
 import Assembler.Instruction
 
 import Data.Bits
+import Data.Word
 import qualified Data.Map.Strict as Map
 
 type LabelMap = Map.Map Label Constant
@@ -19,7 +20,7 @@ assemble insts = map (replaceLabel m) . filter (not . isLabel) $ insts
 
 -- |This function replaces labels with their physical addresses and puts the
 --  instructions in to their binary representation.
-assembleBinary :: [ Instruction ] -> [ Constant ]
+assembleBinary :: [ Instruction ] -> [ Word8 ]
 assembleBinary insts = instsToBinary m . filter (not . isLabel) $ insts
   where m = findLabels insts
 
@@ -47,11 +48,11 @@ replaceLabel m i = case i of
   _                  -> i
 
 -- |This function returns the binary form of the specified instructons.
-instsToBinary :: LabelMap -> [ Instruction ] -> [ Constant ]
-instsToBinary m = map (instToBinary m)
+instsToBinary :: LabelMap -> [ Instruction ] -> [ Word8 ]
+instsToBinary m = concat . map (instToBinary m)
 
 -- |This function returns the binary form of the specified instrcution.
-instToBinary :: LabelMap -> Instruction -> Constant
+instToBinary :: LabelMap -> Instruction -> [ Word8 ]
 -- Arithmetic
 instToBinary m (ADD rd ri        rj) = argsToBinary 1  rd ri rj 0
 instToBinary m (SUB rd ri        rj) = argsToBinary 2  rd ri rj 0
@@ -79,12 +80,14 @@ instToBinary m (HALT               ) = argsToBinary 15 0  0  0  0
 
 -- |This function concatenates all of the components of an instruction in binary
 --  representation.
-argsToBinary :: Constant -> Register -> Register -> Register -> Constant -> Constant
-argsToBinary a d i j c =   shiftL (a .&. 0x0000000F) 28
-                       .|. shiftL (d .&. 0x0000000F) 24
-                       .|. shiftL (i .&. 0x0000000F) 20
-                       .|. shiftL (j .&. 0x0000000F) 16
-                       .|.        (c .&. 0x0000FFFF)
+argsToBinary :: Word8 -> Register -> Register -> Register -> Constant -> [ Word8 ]
+argsToBinary a d i j c = [   fromIntegral ((a .&. 0x0F) `shiftL` 4)
+                         .|. fromIntegral  (d .&. 0x0F)
+                         ,   fromIntegral ((i .&. 0x0F) `shiftL` 4)
+                         .|. fromIntegral  (j .&. 0x0F)
+                         ,   fromIntegral (c `shiftR` 8)
+                         ,   fromIntegral  c
+                         ]
 
 -- |This function returns the physical address for @l@. If @l@ is not yet
 --  defined, 'error' is called.

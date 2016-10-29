@@ -1,7 +1,4 @@
--- |This module re-allocates registers so that the program uses only
---  the number allowed by the architecture.
-
-module Compiler.Allocater
+module Compiler.Allocator
   ( allocate
   ) where
 

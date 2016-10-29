@@ -1,0 +1,8 @@
+void main () {
+  int a[3];
+  setArr(a);
+}
+
+void setArr (int a[]) {
+  a[1] = 7;
+}

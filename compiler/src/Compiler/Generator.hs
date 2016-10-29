@@ -5,206 +5,231 @@ module Compiler.Generator
   ( generate
   ) where
 
-import Data.Maybe (listToMaybe)
 import Compiler.SyntaxTree
 import Compiler.Instruction
+import Compiler.GeneratorState
 
-type Size     = Int
-type SPOffset = Int
-type LabelNo  = Int
-type Vars     = [ (Identifier, Register        ) ]
-type Stack    = [ (Identifier, (SPOffset, Size)) ]
 
-pc, sp :: Register
-pc = 0
-sp = 1
 
 generate :: Program -> [ Instruction ]
-generate (main:funcs) = [ LDC sp (Left 0)
-                        , LDC (sp + 1) (Right "main")
-                        , JMP (sp + 1) ] ++
-                        is ++
-                        [ LABEL "_end" ]
-  where (_, is) = foldl (\(l, is) f -> let (l', is') = genFunction l f
-                                       in  (l', is ++ is')) (genMain 0 main) funcs
+generate (main:funcs) = getInstructions
+                      . appendInstructions [ LABEL "_end"
+                                           , HALT ]
+                      . foldl (flip genFunction) s' $ funcs
+  where s  = foldl (flip addFunction) newGeneratorState funcs
+        s' = genMain main s
 generate _            = error "`main` function not declared."
 
-genMain :: LabelNo -> Function -> (LabelNo, [ Instruction ])
-genMain l (Function _ i _ stmts) = ( l'
-                                   , [ LABEL i ] ++
-                                     is ++
-                                     [ LDC (sp + 1) (Right "_end")
-                                     , JMP (sp + 1) ])
-  where st          = [ ("_return_addr", (1, 1)), ("_return", (0, 1)) ]
-        (l', _, is) = genStatements [] st stmts l
+genMain :: Function -> GeneratorState -> GeneratorState
+genMain (Function _ i _ stmts) s = appendInstructions [ LDC r (Right "_end")
+                                                      , JMP r ] s'5
+  where s'1 = declareVariable (Var "_return") s
+        s'2 = declareVariable (Var "_return_addr") s'1
+        s'3 = appendInstructions [ LABEL i ] s'2
+        s'4 = genStatements stmts s'3
+        ([ r ], s'5) = getNRegisters 1 s'4
 
-genFunction :: LabelNo -> Function -> (LabelNo, [ Instruction ])
-genFunction l (Function t i args stmts) = ( l'
-                                          , [ LABEL i ] ++
-                                            is ++
-                                            is' ++
-                                            [ JMP (r - 1) ])
-  where st            =  (reverse . zip (map (\(Arg _ i _) -> i) args)
-                                  $ [(x, 1) | x <- [2..length args + 2]])
-                      ++ [ ("_return_addr", (1, 1)), ("_return", (0, 1)) ]
-        (l', vs, is ) = genStatements [] st stmts l
-        (r , _ , is') = getVar vs st (Var "_return_addr") (sp + 1)
+genFunction :: Function -> GeneratorState -> GeneratorState
+genFunction (Function _ i args stmts) s = appendInstructions [ LDC r (Left 1)
+                                                             , ADD r r sp
+                                                             , LDM r r
+                                                             , JMP r ] s'6
+  where s'1 = declareVariable (Var "_return") s
+        s'2 = declareVariable (Var "_return_addr") s'1
+        s'3 = foldl (\s arg -> declareArgument arg s) s'2 args
+        s'4 = appendInstructions [ LABEL i ] s'3
+        s'5 = genStatements stmts s'4
+        ([ r ], s'6) = getNRegisters 1 s'5
 
-genStatements :: Vars -> Stack -> [ Statement ] -> LabelNo
-              -> (LabelNo, Vars, [ Instruction ])
-genStatements vs st stmts l = (l', vs', is)
-  where (l', vs', st', is) = foldl genS (l, vs, st, []) stmts
-        genS (l, vs, st, is) s = (_l, _vs, _st, is ++ _is)
-          where (_, _l, _vs, _st, _is) = genStatement vs st s (sp + 1) l
+genStatements :: [ Statement ] -> GeneratorState -> GeneratorState
+genStatements stmts s = resetRegisterNo . foldl (flip genStatement) s' $ stmts
+  where s' = resetRegisterNo s
 
--- |This function generates the instructions and associated state which i
---  required to generate the instruction for the specified statement.
-genStatement :: Vars -> Stack -> Statement -> Register -> LabelNo
-             -> (Register, LabelNo, Vars, Stack, [ Instruction ])
-genStatement vs st (Declaration t v) r l = (r, l, vs, (i, (off, s)):st, [])
-  where (i, s) = case v of
-                   (Var i          ) -> (i, 1)
-                   (Arr i (Const s)) -> (i, s)
-        off    = case listToMaybe st of
-                   (Just (_, (off, size))) -> off + size
-                   (Nothing              ) -> 0
+genStatement :: Statement -> GeneratorState -> GeneratorState
+genStatement (Declaration _ v) s = declareVariable v s
 
-genStatement vs st (Assignment  v e) r l = (r', l, vs', st, is)
-  where (r', vs', is) = setVar vs st v e r
+genStatement (Assignment (Var i) e) s = appendInstructions insts s'3
+  where (r1, s'1)     = genExpr e s
+        ([ r2 ], s'2) = getNRegisters 1 s'1
+        s'3           = case getOffset (Var i) s'2 of
+                          (Left  offset ) -> appendInstructions [ LDC r2 (Left offset)
+                                                                , ADD r2 r2 sp ] s'2
+                          (Right pointer) -> appendInstructions [ LDC r2 (Left pointer)
+                                                                , ADD r2 r2 sp
+                                                                , LDM r2 r2 ] s'2
+        insts         = [ STM r2 r1 ]
+genStatement (Assignment (Arr i index) e) s = appendInstructions insts s'4
+  where (r1, s'1)     = genExpr e s
+        (r2, s'2)     = genExpr index s'1
+        ([ r3 ], s'3) = getNRegisters 1 s'2
+        s'4           = case getOffset (Arr i index) s'3 of
+                          (Left  offset ) -> appendInstructions [ LDC r3 (Left offset)
+                                                                , ADD r3 r3 sp ] s'3
+                          (Right pointer) -> appendInstructions [ LDC r3 (Left pointer)
+                                                                , ADD r3 r3 sp
+                                                                , LDM r3 r3 ] s'3
+        insts         = [ ADD r3 r3 r2
+                        , STM r3 r1
+                        ]
 
-genStatement vs st (Cond e s1 s2) r l = ( r' + 1
-                                        , l' + 2
-                                        , vs'
-                                        , st
-                                        , _is ++
-                                          [ BEZ (Right else_l) (r' - 1) ] ++
-                                          is' ++
-                                          [ LDC r' (Right end_l)
-                                          , JMP r'
-                                          , LABEL else_l ] ++
-                                          is'' ++
-                                          [ LABEL end_l ])
-  where ( r',  _vs , _is  ) = genExpr vs st e r
-        (_l , __vs ,  is' ) = genStatements _vs st s1 l
-        ( l',   vs',  is'') = genStatements __vs st s2 _l
-        else_l = show l'
-        end_l  = show (l' + 1)
+genStatement (Cond e s1 s2) s = appendInstructions [ LABEL l2 ] s'6
+  where (r1, s'1)         = genExpr e s
+        ([ l1, l2 ], s'2) = getNLabels 2 s'1
+        s'3               = appendInstructions [ BEZ r1 (Right l1) ] s'2
+        s'4               = genStatements s1 s'3
+        s'5               = appendInstructions [ LDC r1 (Right l2)
+                                               , JMP r1
+                                               , LABEL l1 ] s'4
+        s'6               = genStatements s2 s'5
 
-genStatement vs st (While e s) r l = ( r' + 1
-                                     , l' + 2
-                                     , vs'
-                                     , st
-                                     , [ LABEL start_l ] ++
-                                       is ++
-                                       [ BEZ (Right end_l) (r' - 1) ] ++
-                                       is' ++
-                                       [ LDC r' (Right start_l)
-                                       , JMP r'
-                                       , LABEL end_l ])
-  where (r', _vs , is ) = genExpr vs st e r
-        (l',  vs', is') = genStatements _vs st s l
-        start_l = show l'
-        end_l   = show (l' + 1)
+genStatement (While e st) s = appendInstructions insts s'5
+  where ([ l1, l2 ], s'1) = getNLabels 2 s
+        s'2               = appendInstructions [ LABEL l1 ] s'1
+        (r1, s'3)         = genExpr e s'2
+        s'4               = appendInstructions [ BEZ r1 (Right l2) ] s'3
+        s'5               = genStatements st s'4
+        insts             = [ LDC r1 (Right l1)
+                            , JMP r1
+                            , LABEL l2
+                            ]
 
-genStatement vs st (FunctionCall f) r l = (r', l, vs', st, is)
-  where (r', vs', is) = genFuncCall vs st f r
+genStatement (FunctionCall f) s = snd . genFuncCall f $ s
 
-genStatement vs st (Return e) r l = (r', l, vs', st, is ++
-                                                     is' ++
-                                                     [ JMP (r' - 1) ])
-  where (_r , _vs , is ) = setVar vs st (Var "_return") e r
-        ( r',  vs', is') = getVar _vs st (Var "_return_addr") _r
+genStatement (Return e) s = appendInstructions insts s'2
+  where (r1, s'1)                 = genExpr e s
+        ([ r2 ], s'2)             = getNRegisters 1 s'1
+        (Left return_offset)      = getOffset (Var "_return") s'2
+        (Left return_addr_offset) = getOffset (Var "_return_addr") s'2
+        insts                     = [ LDC r2 (Left return_offset)
+                                    , ADD r2 r2 sp
+                                    , STM r2 r1
+                                    , LDC r2 (Left return_addr_offset)
+                                    , ADD r2 r2 sp
+                                    , LDM r2 r2
+                                    , JMP r2
+                                    ]
 
-genFuncCall :: Vars -> Stack -> FuncCall -> Register -> (Register, Vars, [ Instruction ])
-genFuncCall = undefined
+genFuncCall :: FuncCall -> GeneratorState -> (Int, GeneratorState)
+genFuncCall (FuncCall i exprs) s = (r1, s'5)
+  where args                  = getFunctionArgs i s
+        params                = zip args exprs
+        stack_size            = getStackSize s
+        ([ l ], s'1)          = getNLabels 1 s
+        ([ r1, r2, r3 ], s'2) = getNRegisters 3 s'1
+        s'3                   = appendInstructions [ LDC r1 (Left stack_size)
+                                                   , ADD sp sp r1
+                                                   , LDC r2 (Left 1)
+                                                   , ADD r3 r2 sp
+                                                   , LDC r1 (Right l)
+                                                   , STM r3 r1 ] s'2
+        s'4                   = foldl pushParam s'3 params
+        s'5                   = appendInstructions [ LDC r2 (Right i)
+                                                   , JMP r2
+                                                   , LABEL l
+                                                   , LDM r1 sp -- Load the return value into r1.
+                                                   , LDC r2 (Left stack_size)
+                                                   , SUB sp sp r2 ] s'4
+        pushParam s (Arg _ _ True, EVar v) = appendInstructions [ ADD r3 r3 r2
+                                                                , STM r3 r ] s'
+          where (r, s') = case getOffset v s of
+                            (Left  offset ) -> (r1, appendInstructions [ LDC r1 (Left $ stack_size - offset)
+                                                                       , SUB r1 sp r1 ] s)
+                            (Right pointer) -> (r1, appendInstructions [ LDC r1 (Left $ stack_size - pointer)
+                                                                       , SUB r1 sp r1
+                                                                       , LDM r1 r1 ] s)
+        pushParam s (_           , ex    ) = appendInstructions [ ADD r3 r3 r2
+                                                                , STM r3 r ] s'
+          where (r, s') = genExpr ex s
 
--- |This function generates the instructions to evaluate the expression @e@.
-genExpr :: Vars -> Stack -> Expression -> Register -> (Register, Vars, [ Instruction ])
-genExpr vs st e r = case e of
-  (TRUE     ) -> (r + 1, vs, [ LDC r (Left 1) ])
-  (FALSE    ) -> (r + 1, vs, [ LDC r (Left 0) ])
-  (Const   i) -> (r + 1, vs, [ LDC r (Left $ fromIntegral i) ])
-  (Func   fn) -> genFuncCall vs st fn r
-  (EVar    v) -> getVar vs st v r
-  (Add e1 e2) -> bin r e1 e2 ADD
-  (Sub e1 e2) -> bin r e1 e2 SUB
-  (Mul e1 e2) -> bin r e1 e2 MUL
-  (Div e1 e2) -> bin r e1 e2 DIV
-  (Eq  e1 e2) -> bin r e1 e2 CEQ
-  (Neq e1 e2) -> genExpr vs st (Neg (Eq e1 e2)) r
-  (Lt  e1 e2) -> bin r e2 e1 CGT
-  (Gt  e1 e2) -> bin r e1 e2 CGT
-  (Lte e1 e2) -> genExpr vs st (Neg (Gt e1 e2)) r
-  (Gte e1 e2) -> genExpr vs st (Neg (Lt e1 e2)) r
-  (Neg ex   ) -> uni r ex    NOT
-  (And e1 e2) -> bin r e1 e2 AND
-  (Or  e1 e2) -> bin r e1 e2 OR
-  where uni r ex    cons = (r'  + 1, vs' , ex_i ++ [ cons r' (r' - 1) ])
-          where (r' , vs' , ex_i) = genExpr vs  st ex r
-        bin r e1 e2 cons = (r'' + 1, vs'', e1_i ++ e2_i ++ [ cons r'' (r' - 1) (r'' - 1) ])
-          where (r' , vs' , e1_i) = genExpr vs  st e1 r
-                (r'', vs'', e2_i) = genExpr vs' st e2 r'
+genExpr :: Expression -> GeneratorState -> (Int, GeneratorState)
+genExpr (TRUE     ) s = (r, appendInstructions [ LDC r (Left 1) ] s'1)
+  where ([ r ], s'1) = getNRegisters 1 s
 
--- |This function retrieves the value of the specified variable from the stack.
---  It first looks in the Vars list to see if the memory location has already
---  been calculated. If the variable is not in this list, it then calculates the
---  memory location using the stack information.
-getVar :: Vars -> Stack -> Variable -> Register -> (Register, Vars, [ Instruction ])
-getVar vs st (Var i) r = case lookup i vs of
-  (Just reg) -> (r + 1, vs, [ LDM r reg ])
-  (Nothing ) -> case lookup i st of
-    (Just (off, _)) -> (r + 3, (i, r + 1):vs, [ LDC r (Left $ fromIntegral off)
-                                              , ADD (r + 1) r sp
-                                              , LDM (r + 2) (r + 1)
-                                              ])
-    (Nothing      ) -> error $  "Variable "
-                             ++ show i
-                             ++ " has not been declared."
+genExpr (FALSE    ) s = (r, appendInstructions [ LDC r (Left 0) ] s'1)
+  where ([ r ], s'1) = getNRegisters 1 s
 
-getVar vs st (Arr i ex) r = case lookup i vs' of
-  (Just reg) -> (r' + 2, vs, is ++ [ ADD r' reg (r' - 1)
-                                   , LDM (r' + 1) r'
-                                   ])
-  (Nothing ) -> case lookup i st of
-    (Just (off, _)) -> (r' + 4, (i, r' + 1):vs, is ++ [ LDC r' (Left $ fromIntegral off)
-                                                      , ADD (r' + 1) r' sp
-                                                      , ADD (r' + 2) (r' + 1) (r' - 1)
-                                                      , LDM (r' + 3) (r' + 2)
-                                                      ])
-    (Nothing      ) -> error $  "Array "
-                             ++ show i
-                             ++ " has not been declared."
-  where (r', vs', is) = genExpr vs st ex r
+genExpr (Const   i) s = (r, appendInstructions [ LDC r (Left i) ] s'1)
+  where ([ r ], s'1) = getNRegisters 1 s
 
--- |This function sets the value of the specified variable to that of the
---  specified expression. It first looks in the Vars list to see if the memory
---  location has already been calculated. If the variable is not in this list,
---  it then calculates the memory location using the stack information.
-setVar :: Vars -> Stack -> Variable -> Expression -> Register -> (Register, Vars, [ Instruction ])
-setVar vs st (Var i) e r = case lookup i vs of
-  (Just reg) -> (r', vs', is ++ [ STM reg (r' - 1) ])
-  (Nothing ) -> case lookup i st of
-    (Just (off, _)) -> (r' + 2, (i, r' + 1):vs, is ++ [ LDC r' (Left $ fromIntegral off)
-                                                      , ADD (r' + 1) r' sp
-                                                      , STM (r' + 1) (r' - 1)
-                                                      ])
-    (Nothing      ) -> error $  "Variable "
-                             ++ show i
-                             ++ " has not been declared."
-  where (r', vs', is) = genExpr vs st e r
+genExpr (Func   fn) s = genFuncCall fn s
 
-setVar vs st (Arr i ex) e r = case lookup i vs of
-  (Just reg) -> (r' + 1, vs', is ++ is' ++ [ ADD r' reg (_r - 1)
-                                           , STM r' (r' - 1)
-                                           ])
-  (Nothing ) -> case lookup i st of
-    (Just (off, _)) -> (r' + 3, (i, r' + 1):vs', is ++ is' ++ [ LDC r' (Left $ fromIntegral off)
-                                                              , ADD (r' + 1) r' sp
-                                                              , ADD (r' + 2) (r' + 1) (_r - 1)
-                                                              , STM (r' + 2) (r' - 1)
-                                                              ])
-    (Nothing      ) -> error $  "Array "
-                             ++ show i
-                             ++ " has not been declared."
-  where (_r, _vs, is ) = genExpr  vs st ex r
-        (r', vs', is') = genExpr _vs st e _r
+genExpr (EVar    v) s = (r , s'3)
+  where ([ r ], s'1) = getNRegisters 1 s
+        s'2          = case getOffset v s'1 of
+                         (Left  offset ) -> appendInstructions [ LDC r (Left offset)
+                                                               , ADD r r sp ] s'1
+                         (Right pointer) -> appendInstructions [ LDC r (Left pointer)
+                                                               , ADD r r sp
+                                                               , LDM r r ] s'1
+        s'3          = case v of
+                         (Var i      ) -> appendInstructions [ LDM r r ] s'2
+                         (Arr i index) -> let (r1, s'4) = genExpr index s'2 in
+                                          appendInstructions [ ADD r r r1
+                                                             , LDM r r ] s'4
+
+genExpr (Add e1 e2) s = (r, appendInstructions [ ADD r r1 r2 ] s'3)
+  where (r1, s'1)    = genExpr e1 s
+        (r2, s'2)    = genExpr e2 s'1
+        ([ r ], s'3) = getNRegisters 1 s'2
+
+genExpr (Sub e1 e2) s = (r, appendInstructions [ SUB r r1 r2 ] s'3)
+  where (r1, s'1)    = genExpr e1 s
+        (r2, s'2)    = genExpr e2 s'1
+        ([ r ], s'3) = getNRegisters 1 s'2
+
+genExpr (Mul e1 e2) s = (r, appendInstructions [ MUL r r1 r2 ] s'3)
+  where (r1, s'1)    = genExpr e1 s
+        (r2, s'2)    = genExpr e2 s'1
+        ([ r ], s'3) = getNRegisters 1 s'2
+
+genExpr (Div e1 e2) s = (r, appendInstructions [ DIV r r1 r2 ] s'3)
+  where (r1, s'1)    = genExpr e1 s
+        (r2, s'2)    = genExpr e2 s'1
+        ([ r ], s'3) = getNRegisters 1 s'2
+
+genExpr (Eq  e1 e2) s = (r, appendInstructions [ CEQ r r1 r2 ] s'3)
+  where (r1, s'1)    = genExpr e1 s
+        (r2, s'2)    = genExpr e2 s'1
+        ([ r ], s'3) = getNRegisters 1 s'2
+
+genExpr (Neq e1 e2) s = (r, appendInstructions [ CEQ r r1 r2
+                                               , NOT r r ] s'3)
+  where (r1, s'1)    = genExpr e1 s
+        (r2, s'2)    = genExpr e2 s'1
+        ([ r ], s'3) = getNRegisters 1 s'2
+
+genExpr (Lt  e1 e2) s = (r, appendInstructions [ CGT r r2 r1 ] s'3)
+  where (r1, s'1)    = genExpr e1 s
+        (r2, s'2)    = genExpr e2 s'1
+        ([ r ], s'3) = getNRegisters 1 s'2
+
+genExpr (Gt  e1 e2) s = (r, appendInstructions [ CGT r r1 r2 ] s'3)
+  where (r1, s'1)    = genExpr e1 s
+        (r2, s'2)    = genExpr e2 s'1
+        ([ r ], s'3) = getNRegisters 1 s'2
+
+genExpr (Lte e1 e2) s = (r, appendInstructions [ CGT r r1 r2
+                                               , NOT r r ] s'3)
+  where (r1, s'1)    = genExpr e1 s
+        (r2, s'2)    = genExpr e2 s'1
+        ([ r ], s'3) = getNRegisters 1 s'2
+
+genExpr (Gte e1 e2) s = (r, appendInstructions [ CGT r r2 r1
+                                               , NOT r r ] s'3)
+  where (r1, s'1)    = genExpr e1 s
+        (r2, s'2)    = genExpr e2 s'1
+        ([ r ], s'3) = getNRegisters 1 s'2
+
+genExpr (Neg ex   ) s = (r, appendInstructions [ NOT r r1 ] s'2)
+  where (r1, s'1)    = genExpr ex s
+        ([ r ], s'2) = getNRegisters 1 s'1
+
+genExpr (And e1 e2) s = (r, appendInstructions [ AND r r1 r2 ] s'3)
+  where (r1, s'1)    = genExpr e1 s
+        (r2, s'2)    = genExpr e2 s'1
+        ([ r ], s'3) = getNRegisters 1 s'2
+
+genExpr (Or  e1 e2) s = (r, appendInstructions [ OR  r r1 r2 ] s'3)
+  where (r1, s'1)    = genExpr e1 s
+        (r2, s'2)    = genExpr e2 s'1
+        ([ r ], s'3) = getNRegisters 1 s'2

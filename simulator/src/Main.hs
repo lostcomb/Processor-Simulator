@@ -5,6 +5,7 @@ module Main
 import Prelude hiding (readFile)
 import System.Exit
 import System.Environment
+import Data.Int
 import Data.Char
 import Data.Word
 import Stages.Fetch
@@ -62,7 +63,7 @@ generateMemoryLines s = mem_lines
                                 (map (uncurry generateMemory) x)
                              ++ "|") mem_groups
 
-generateMemory :: Word32 -> Word32 -> String
+generateMemory :: Word32 -> Int32 -> String
 generateMemory i v = " " ++ i_s ++ padding ++ v_s ++ " "
   where i_s     = show i ++ ": "
         v_s     = show v
@@ -76,7 +77,7 @@ generateRegisterLines s = register_lines
                                      (map (uncurry generateRegister) x)
                                   ++ "|") register_groups
 
-generateRegister :: RegisterName -> Word32 -> String
+generateRegister :: RegisterName -> Int32 -> String
 generateRegister r v = " " ++ r_s ++ padding ++ v_s ++ " "
   where r_s     = show r ++ ": "
         v_s     = show v

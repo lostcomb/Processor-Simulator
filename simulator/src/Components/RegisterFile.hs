@@ -6,12 +6,12 @@ module Components.RegisterFile
   , setRegister
   ) where
 
-import Data.Word
+import Data.Int
 import Components.Registers
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 
-type RegisterFile = Map RegisterName Word32
+type RegisterFile = Map RegisterName Int32
 
 emptyRegisterFile :: RegisterFile
 emptyRegisterFile = Map.fromList [ (R0 , 0), (R1 , 0), (R2 , 0)
@@ -22,11 +22,11 @@ emptyRegisterFile = Map.fromList [ (R0 , 0), (R1 , 0), (R2 , 0)
                                  , (R15, 0)
                                  ]
 
-getRegisters :: RegisterFile -> [ (RegisterName, Word32) ]
+getRegisters :: RegisterFile -> [ (RegisterName, Int32) ]
 getRegisters = Map.toList
 
-getRegister :: RegisterName -> RegisterFile -> Word32
+getRegister :: RegisterName -> RegisterFile -> Int32
 getRegister = Map.findWithDefault 0
 
-setRegister :: RegisterName -> Word32 -> RegisterFile -> RegisterFile
+setRegister :: RegisterName -> Int32 -> RegisterFile -> RegisterFile
 setRegister = Map.insert

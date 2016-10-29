@@ -12,8 +12,6 @@ import Text.Parsec.Token
 import Text.Parsec.String (Parser)
 import Text.Parsec.Language (emptyDef)
 
-import Control.Applicative hiding (Const, (<|>), many)
-
 lexer = makeTokenParser languageDef
 languageDef = emptyDef
   { commentLine   = ";"

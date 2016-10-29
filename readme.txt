@@ -19,7 +19,7 @@ For the ISA reference look in: `isa_reference.txt`.
 ### To run the simulator: ###
 
 1. From the `simulator/src` folder, run `./simulator "path_to_program.o"`.
-   An example of this would be: `cabal run "../benchmarks/gcd.o"`.
+   An example of this would be: `./simulator "../../benchmarks/gcd.o"`.
 
 2. When the simulator starts, step along program execution by pressing the
    carriage return / enter key.

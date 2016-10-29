@@ -36,7 +36,7 @@ decodeInstruction (b1, b2, b3, b4) = case op_code of
         op3       = (b2 .&. 0x0F)
         b3_32     = (fromIntegral b3) :: Word32
         b4_32     = (fromIntegral b4) :: Word32
-        imm       = (b3_32 `shiftL` 8) .|. b4_32
+        imm       = fromIntegral $ (b3_32 `shiftL` 8) .|. b4_32
         op_length = defaultCycles op_code
 
 defaultCycles :: Word8 -> Int

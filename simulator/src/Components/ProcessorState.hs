@@ -16,8 +16,9 @@ module Components.ProcessorState
   , haltExecution
   ) where
 
-import Data.List
+import Data.Int
 import Data.Word
+import Data.List
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Components.Registers
@@ -25,7 +26,7 @@ import Components.RegisterFile
 
 data ProcessorState = ProcessorState
   { instructions  :: [ Word8 ]
-  , memory        :: Map Word32 Word32
+  , memory        :: Map Word32 Int32
   , registers     :: RegisterFile
   , cycles        :: Int
   , executedInsts :: Int
@@ -45,22 +46,22 @@ newProcessorState instructions = ProcessorState
 getRegisterFile :: ProcessorState -> RegisterFile
 getRegisterFile s = registers s
 
-getReg :: RegisterName -> ProcessorState -> Word32
+getReg :: RegisterName -> ProcessorState -> Int32
 getReg r s = getRegister r (registers s)
 
-setReg :: RegisterName -> Word32 -> ProcessorState -> ProcessorState
+setReg :: RegisterName -> Int32 -> ProcessorState -> ProcessorState
 setReg r v s = s { registers = setRegister r v (registers s) }
 
 getInstruction :: Word32 -> ProcessorState -> Word8
 getInstruction i s = genericIndex (instructions s) i
 
-getMemoryContents :: ProcessorState -> [ (Word32, Word32) ]
+getMemoryContents :: ProcessorState -> [ (Word32, Int32) ]
 getMemoryContents s = Map.toList (memory s)
 
-getMemory :: Word32 -> ProcessorState -> Word32
+getMemory :: Word32 -> ProcessorState -> Int32
 getMemory i s = Map.findWithDefault 0 i (memory s)
 
-setMemory :: Word32 -> Word32 -> ProcessorState -> ProcessorState
+setMemory :: Word32 -> Int32 -> ProcessorState -> ProcessorState
 setMemory i v s = s { memory = Map.insert i v (memory s) }
 
 updateCycles :: Int -> ProcessorState -> ProcessorState
