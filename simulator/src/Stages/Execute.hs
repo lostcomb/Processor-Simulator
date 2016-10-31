@@ -37,9 +37,7 @@ execute' (Or  x (Reg rd) (Reg ri) (Reg rj)) s = updateCycles x . setReg rd (vi .
   where vi = getReg ri s
         vj = getReg rj s
 
-execute' (Not x (Reg rd) (Reg ri)) s = updateCycles x . setReg rd (if vi == 0
-                                                                     then 1
-                                                                     else 0) $ s
+execute' (Not x (Reg rd) (Reg ri)) s = updateCycles x . setReg rd (complement vi) $ s
   where vi = getReg ri s
 
 execute' (Jmp x (Reg ri)) s = updateCycles x . setReg pc vi $ s

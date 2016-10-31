@@ -4,12 +4,15 @@ LDC r1 #10
 LDC r2 #8
 ; Define 0
 LDC r3 #0
+; Define 1
+LDC r8 #1
 
 ; While loop
 :loop_start
 ; Loop condition
 CEQ r4 r2 r3
 NOT r4 r4
+AND r4 r4 r8
 BEZ r4 :loop_end
 
 ; Loop body

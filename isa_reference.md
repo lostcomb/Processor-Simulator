@@ -25,7 +25,7 @@ Logic:
     * Bit-wise OR two signed integers.
   * *NOT Rd, Ri*
     * Binary representation: `0111 dddd iiii 0000 0000 0000 0000 0000`
-    * Bit-wise NOT a signed integer.
+    * Bit-wise NOT a signed integer. i.e. complement each bit.
 
 Control Flow:
 
