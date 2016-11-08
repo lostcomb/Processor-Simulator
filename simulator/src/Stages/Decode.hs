@@ -6,11 +6,12 @@ import Data.Word
 import Data.Bits
 import Components.Registers
 import Components.Instructions
-import Components.ProcessorState
+import Components.Processor
+import Control.Monad.State
 
-decode :: (Word8, Word8, Word8, Word8) -> ProcessorState
-       -> (Instruction Int, ProcessorState)
-decode b s = (decodeInstruction b, updateCycles 1 s)
+decode :: (Word8, Word8, Word8, Word8) -> State Processor (Instruction Int)
+decode b = do updateCycles 1
+              return $ decodeInstruction b
 
 decodeInstruction :: (Word8, Word8, Word8, Word8) -> Instruction Int
 decodeInstruction (b1, b2, b3, b4) = case op_code of

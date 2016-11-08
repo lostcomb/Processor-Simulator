@@ -16,52 +16,47 @@ import Data.List.Split
 import Data.ByteString.Lazy (readFile, unpack)
 import Components.Registers
 import Components.RegisterFile
-import Components.ProcessorState
+import Components.Processor
+import Control.Monad.State
 
 main :: IO ()
 main = do (program:_) <- getArgs
           contents <- readFile program
-          exec $ newProcessorState $ unpack contents
+          exec $ newProcessor $ unpack contents
 
-exec :: ProcessorState -> IO ()
-exec s = do displayProcessorState s
-            if isHalted s
+exec :: Processor -> IO ()
+exec p = do let str = evalState displayProcessor p
+                halted = evalState isHalted p
+            putStrLn str
+            if halted
               then exitSuccess
               else do getChar
-                      s' <- step s
-                      exec s'
+                      let (inst, p') = runState step p
+                      putStrLn inst
+                      exec p'
 
-displayProcessorState :: ProcessorState -> IO ()
-displayProcessorState s =
-  do let horz_section = replicate 4 . replicate 17 $ '-'
-         top_line     = "+" ++ intercalate "+" horz_section ++ "+"
-         middle_line  = "\n+" ++ intercalate "+" horz_section ++ "+\n"
-         bottom_line  = "+" ++ intercalate "+" horz_section ++ "+"
-         reg_lines    = intercalate middle_line $ generateRegisterLines s
-         mem_lines    = intercalate ("\n|" ++ replicate 71 ' ' ++ "|\n") $ generateMemoryLines s
-     putStrLn "Registers:"
-     putStrLn top_line
-     putStrLn reg_lines
-     putStrLn bottom_line
-     putStrLn "Memory:"
-     putStrLn $ "+" ++ replicate 71 '-' ++ "+"
-     putStrLn mem_lines
-     putStrLn $ "+" ++ replicate 71 '-' ++ "+"
-     putStrLn "Stats:"
-     putStrLn $  "\tExecuted "
-              ++ show (getExecutedInsts s)
-              ++ " instructions after "
-              ++ show (getCycles s)
-              ++ " cycles."
+displayProcessor :: State Processor String
+displayProcessor
+  = do reg_lines <- generateRegisterLines
+       mem_lines <- generateMemoryLines
+       executed_insts <- getExecutedInsts
+       cycles <- getCycles
+       let horz_section = replicate 4 . replicate 17 $ '-'
+           reg_line = "\n+" ++ intercalate "+" horz_section ++ "+\n"
+           mem_line = "\n+" ++ intercalate "-" horz_section ++ "+\n"
+           reg_str = intercalate reg_line reg_lines
+           mem_str = intercalate ("\n|" ++ replicate 71 ' ' ++ "|\n") mem_lines
+       return $  "Registers:" ++ reg_line ++ reg_str ++ reg_line
+              ++ "Memory:"    ++ mem_line ++ mem_str ++ mem_line
+              ++ "Stats:\n\tExecuted " ++ show executed_insts
+              ++ " instructions after " ++ show cycles ++ " cycles."
 
-
-generateMemoryLines :: ProcessorState -> [ String ]
-generateMemoryLines s = mem_lines
-  where mem_groups = chunksOf 3 $ getMemoryContents s
-        mem_lines  = map (\x -> "|"
-                             ++ intercalate " "
-                                (map (uncurry generateMemory) x)
-                             ++ "|") mem_groups
+generateMemoryLines :: State Processor [ String ]
+generateMemoryLines
+  = do mem <- getMemoryContents
+       let mem_groups = chunksOf 3 mem
+           gen_mem = \m -> map (uncurry generateMemory) m
+       return $ map (\x -> "|" ++ intercalate " " (gen_mem x) ++ "|") mem_groups
 
 generateMemory :: Word32 -> Int32 -> String
 generateMemory i v = " " ++ i_s ++ padding ++ v_s ++ " "
@@ -69,13 +64,13 @@ generateMemory i v = " " ++ i_s ++ padding ++ v_s ++ " "
         v_s     = show v
         padding = replicate (21 - (length i_s + length v_s)) ' '
 
-generateRegisterLines :: ProcessorState -> [ String ]
-generateRegisterLines s = register_lines
-  where register_groups = chunksOf 4 $ getRegisters (getRegisterFile s)
-        register_lines  = map (\x -> "|"
-                                  ++ intercalate "|"
-                                     (map (uncurry generateRegister) x)
-                                  ++ "|") register_groups
+generateRegisterLines :: State Processor [ String ]
+generateRegisterLines
+  = do reg_file <- getRegisterFile
+       let regs = getRegisters reg_file
+           reg_groups = chunksOf 4 regs
+           gen_reg = \r -> map (uncurry generateRegister) r
+       return $ map (\x -> "|" ++ intercalate "|" (gen_reg x) ++ "|") reg_groups
 
 generateRegister :: RegisterName -> Int32 -> String
 generateRegister r v = " " ++ r_s ++ padding ++ v_s ++ " "
@@ -83,8 +78,8 @@ generateRegister r v = " " ++ r_s ++ padding ++ v_s ++ " "
         v_s     = show v
         padding = replicate (15 - (length r_s + length v_s)) ' '
 
-step :: ProcessorState -> IO ProcessorState
-step s = do let s'     = uncurry execute . uncurry decode . fetch $ s
-                (i, _) = uncurry decode . fetch $ s
-            putStrLn $ "Executing Instruction: " ++ show i
-            return s'
+step :: State Processor String
+step = do bi <- fetch
+          i <- decode bi
+          execute i
+          return $ "Executing Instruction: " ++ show i

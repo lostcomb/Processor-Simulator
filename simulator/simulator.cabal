@@ -51,7 +51,7 @@ executable simulator
   other-extensions:    GADTs
 
   -- Other library packages from which modules are imported.
-  build-depends:       base >=4.9 && <4.10, containers >=0.5 && <0.6, bytestring, split
+  build-depends:       base >=4.9 && <4.10, containers >=0.5 && <0.6, bytestring, split, mtl
 
   -- Directories containing source files.
   hs-source-dirs:      src
