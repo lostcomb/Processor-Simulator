@@ -72,7 +72,7 @@ generateRegisterLines
            gen_reg = \r -> map (uncurry generateRegister) r
        return $ map (\x -> "|" ++ intercalate "|" (gen_reg x) ++ "|") reg_groups
 
-generateRegister :: RegisterName -> Int32 -> String
+generateRegister :: Register -> Int32 -> String
 generateRegister r v = " " ++ r_s ++ padding ++ v_s ++ " "
   where r_s     = show r ++ ": "
         v_s     = show v

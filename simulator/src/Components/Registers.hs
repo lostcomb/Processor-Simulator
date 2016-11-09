@@ -1,11 +1,10 @@
 module Components.Registers
   ( Register(..)
-  , RegisterName(..)
   , pc
   ) where
 
-data RegisterName =
-    R0
+data Register
+  = R0
   | R1
   | R2
   | R3
@@ -21,10 +20,7 @@ data RegisterName =
   | R13
   | R14
   | R15
-  deriving (Show, Ord, Eq, Read)
+  deriving (Show, Ord, Eq, Bounded, Enum, Read)
 
-data Register = Reg RegisterName
-  deriving (Show, Eq, Read)
-
-pc :: RegisterName
+pc :: Register
 pc = R0

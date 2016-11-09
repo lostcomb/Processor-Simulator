@@ -1,32 +1,26 @@
 module Components.RegisterFile
   ( RegisterFile
-  , emptyRegisterFile
-  , getRegisters
-  , getRegister
-  , setRegister
+  , emptyRegFile
+  , getRegs
+  , getReg
+  , setReg
   ) where
 
 import Data.Int
+import Data.Map (Map)
+import qualified Data.Map as Map
 import Components.Registers
-import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
 
-type RegisterFile = Map RegisterName Int32
+type RegisterFile = Map Register Int32
 
-emptyRegisterFile :: RegisterFile
-emptyRegisterFile = Map.fromList [ (R0 , 0), (R1 , 0), (R2 , 0)
-                                 , (R3 , 0), (R4 , 0), (R5 , 0)
-                                 , (R6 , 0), (R7 , 0), (R8 , 0)
-                                 , (R9 , 0), (R10, 0), (R11, 0)
-                                 , (R12, 0), (R13, 0), (R14, 0)
-                                 , (R15, 0)
-                                 ]
+emptyRegFile :: RegisterFile
+emptyRegFile = Map.fromList $ zip [(minBound :: Register)..] $ repeat 0
 
-getRegisters :: RegisterFile -> [ (RegisterName, Int32) ]
-getRegisters = Map.toList
+getRegs :: RegisterFile -> [ (Register, Int32) ]
+getRegs = Map.toList
 
-getRegister :: RegisterName -> RegisterFile -> Int32
-getRegister = Map.findWithDefault 0
+getReg :: Register -> RegisterFile -> Int32
+getReg = Map.findWithDefault 0
 
-setRegister :: RegisterName -> Int32 -> RegisterFile -> RegisterFile
-setRegister = Map.insert
+setReg :: Register -> Int32 -> RegisterFile -> RegisterFile
+setReg = Map.insert
