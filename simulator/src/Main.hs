@@ -8,15 +8,15 @@ import System.Environment
 import Data.Int
 import Data.Char
 import Data.Word
-import Stages.Fetch
-import Stages.Decode
-import Stages.Execute
+import Stage.Fetch
+import Stage.Decode
+import Stage.Execute
 import Data.List
 import Data.List.Split
 import Data.ByteString.Lazy (readFile, unpack)
-import Components.Registers
-import Components.RegisterFile
-import Components.Processor
+import Component.Register
+import Component.RegisterFile
+import Component.Processor
 import Control.Monad.State
 
 main :: IO ()

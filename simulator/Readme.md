@@ -1,10 +1,8 @@
-# Processor Simulator Specs #
+# TODO: #
 
-Must output:
-
-  1. the number of instruction executed per cycle.
-  2. the number of cycles completed.
-  3. the contents of the registers and memory (preferably each cycle).
-
-Must be configurable, i.e. allow the option of how long memory access and stores
-take.
+* Make RegisterFile a Typeclass.
+* Store more data to draw graphs with.
+* Update each stage to work with new Processor.
+* Update Main so that you can configure whether to use scalar, pipelined,
+  superscalar, etc. with options to turn off bypassing, register renaming,
+  switch branch prediction algorithms, etc.
