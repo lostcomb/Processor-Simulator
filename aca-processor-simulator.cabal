@@ -1,0 +1,17 @@
+name:                aca-processor-simulator
+version:             0.1.0.0
+description:         Please see README.md
+homepage:            https://bitbucket.org/Lostcomb/aca-processor-simulator/src
+license:             BSD3
+license-file:        LICENSE
+author:              Julian Loscombe
+maintainer:          jl14910@my.bristol.ac.uk
+copyright:           2016 Julian Loscombe
+build-type:          Simple
+cabal-version:       >=1.10
+
+executable aca-processor-simulator
+  hs-source-dirs:      src
+  main-is:             Main.hs
+  default-language:    Haskell2010
+  build-depends:       base >= 4.7 && < 5

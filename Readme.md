@@ -1,54 +1,32 @@
 # Advanced Computer Architecture Processor Simulator #
 
-For the ISA reference look in: `isa_reference.txt`.
+## TODO: Compile instructions. ##
 
-## To compile and run the simulator, assembler and compiler: ##
+# ISA Reference: #
 
-1. `cd` into the root directory of the project. (Contains `assembler`,
-   `benchmarks`, `compiler`, `simulator` folders).
+| Assembly Representation | Binary Representation                     | Description                                                                   |
+| ----------------------- | ----------------------------------------- | ----------------------------------------------------------------------------- |
+| ADD Rd, Ri, Rj          | `0001 dddd iiii jjjj 0000 0000 0000 0000` | Add two signed integers.                                                      |
+| SUB Rd, Ri, Rj          | `0010 dddd iiii jjjj 0000 0000 0000 0000` | Subtract two signed integers.                                                 |
+| MUL Rd, Ri, Rj          | `0011 dddd iiii jjjj 0000 0000 0000 0000` | Multiply two signed integers.                                                 |
+| DIV Rd, Ri, Rj          | `0100 dddd iiii jjjj 0000 0000 0000 0000` | Divide two signed integers.                                                   |
+| AND Rd, Ri, Rj          | `0101 dddd iiii jjjj 0000 0000 0000 0000` | Bit-wise AND two signed integers.                                             |
+| OR  Rd, Ri, Rj          | `0110 dddd iiii jjjj 0000 0000 0000 0000` | Bit-wise OR two signed integers.                                              |
+| NOT Rd, Ri              | `0111 dddd iiii 0000 0000 0000 0000 0000` | Bit-wise NOT a signed integer. i.e. complement each bit.                      |
+| JMP Ri                  | `1000 0000 iiii 0000 0000 0000 0000 0000` | Unconditional jump, PC = Ri.                                                  |
+| BEZ Ri, #O              | `1001 0000 iiii 0000 oooo oooo oooo oooo` | Branch, PC = #O if Ri == 0.                                                   |
+| CEQ Rd, Ri, Rj          | `1010 dddd iiii jjjj 0000 0000 0000 0000` | Rd = 1 if Ri == Rj, Rd = 0 otherwise.                                         |
+| CGT Rd, Ri, Rj          | `1011 dddd iiii jjjj 0000 0000 0000 0000` | Rd = 1 if Ri < Rj, Rd = 0 otherwise.                                          |
+| LDC Rd, #C              | `1100 dddd 0000 0000 cccc cccc cccc cccc` | Load constant C into Rd.                                                      |
+| LDM Rd, MEM[Ri]         | `1101 dddd iiii 0000 0000 0000 0000 0000` | Load word at memory location Ri into Rd.                                      |
+| STM MEM[Ri], Rj         | `1110 0000 iiii jjjj 0000 0000 0000 0000` | Store word in Rj to memory location Ri.                                       |
+| NOP                     | `0000 0000 0000 0000 0000 0000 0000 0000` | No operation.                                                                 |
+| HALT                    | `1111 0000 0000 0000 0000 0000 0000 0000` | Halt execution. This is a pseudo instruction for use with the simulator only. |
 
-2. Run `cabal sandbox init`.
+Where:
 
-### To compile the simulator: ###
+| Destination Register | Operand Registers | Constant | Offset | Memory | Program Counter |
+| -------------------- | ----------------- | -------- | ------ | ------ | --------------- |
+| Rd                   | Ri, Rj            | C        | O      | MEM    | PC              |
 
-1. `cd` into the `simulator` folder.
-
-2. Run `cabal sandbox init --sandbox="../.cabal-sandbox"`.
-
-3. Run `cabal install`.
-
-### To run the simulator: ###
-
-1. From the `simulator` folder, run `cabal run "path_to_program.o"`.
-   An example of this would be: `cabal run "../benchmarks/gcd.o"`.
-
-2. When the simulator starts, step along program execution by pressing the
-   carriage return / enter key.
-
-### To compile the assembler: ###
-
-1. `cd` into the `assembler` folder.
-
-2. Run `cabal sandbox init --sandbox="../.cabal-sandbox"`.
-
-3. Run `cabal install`.
-
-### To run the assembler: ###
-
-1. `cd` to the `assembler` folder.
-
-2. Run `cabal run "assemble_bin" "path_to_assembly_code.asm" "path_to_destination.o"`.
-
-### To compile the compiler: ###
-
-1. `cd` into the `compiler` folder.
-
-2. Run `cabal sandbox init --sandbox="../.cabal-sandbox"`.
-
-3. Run `cabal install`.
-
-### To run the compiler: ###
-
-1. `cd` into the `compiler` folder.
-
-2. Run `cabal run "generate" "path_to_input_program.cmm" "path_to_output_assembly.asm"`.
+Available registers: `R0-R15`. `R0` is the program counter and can only be modified with the `JMP` and `BEZ` instructions.
