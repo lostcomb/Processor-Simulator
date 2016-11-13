@@ -8,8 +8,8 @@ import Control.Lens
 import Simulator.Data.Processor
 
 fetch :: State p [ Maybe (Word8, Word8, Word8, Word8) ]
-fetch = do n_insts <- fetchStage.noOfInsts
-           stalled? <- fetchStage.stalled
+fetch = do n_insts <- use $ fetchStage.noOfInsts
+           stalled? <- use $ fetchStage.stalled
            if stalled?
              then do output <- getDecInputLatches
                      return output

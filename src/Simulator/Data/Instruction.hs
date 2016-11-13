@@ -1,5 +1,4 @@
 {-# LANGUAGE GADTs #-}
-
 module Simulator.Data.Instruction
   ( Inst(..)
   , Instruction(..)

@@ -1,20 +1,14 @@
 module Simulator.Data.Stage.Decode
-  ( Decode
+  ( Decode(..)
   , newDecode
   ) where
 
-import Control.Lens
-import Simulator.Data.Stallable
-
 data Decode = Decode
-  { _stalled :: Bool
+  { _decodeStalled :: Bool
   }
   deriving (Show, Eq, Read)
 
 newDecode :: Decode
 newDecode = Decode
-  { _stalled = False
+  { _decodeStalled = False
   }
-
-instance Stallable Decode where
-  stalled = lens _stalled (\dec s -> dec { _stalled = s })

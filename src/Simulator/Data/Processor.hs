@@ -1,61 +1,70 @@
+{-# LANGUAGE TemplateHaskell,
+             MultiParamTypeClasses,
+             FunctionalDependencies,
+             FlexibleInstances,
+             RankNTypes #-}
 module Simulator.Data.Processor
-  (-- Processor types.
-    Processor
-   -- Processor functions
-  , newProcessor, fetchStage, decInputLatches, decodeStage, issInputLatches
-  , issueStage, exeInputLatches, executeStage, wrbInputLatches, writebackStage
-  , instMem, dataMem, regFile, simData, instCycles, options
-   -- Option types.
-  , Options, Type(..)
-   -- Option functions.
-  , procType, bypassEnabled, pipelinedEUs
-   -- Fetch type.
-  , Fetch
-   -- Fetch functions.
-  , noOfInsts, programCounter
-   -- Decode type.
-  , Decode
-   -- Issue type.
-  , Issue
-   -- Issue functions.
-  , issueWindow, execWindow
-   -- Execute type.
-  , Execute
-   -- Execute functions.
-  , noOfEUs, bypassValues
-   -- Writeback type.
-  , Writeback
-   -- RegisterFile types.
-  , Register(..), RegisterFile, Flag(..)
-   -- RegisterFile functions.
-  , pc
-   -- Simdata type.
-  , Simdata
-   -- Simdata functions.
-  , cycles, insts, instsPerCycle, fetchStalledCount
-  , decodeStalledCount, issueStalledCount, executeStalledCount
-  , writebackStalledCount, correctPredictions, incorrectPredictions
-  , outOfOrderPerCycle
-   -- Stallable typeclass.
-  , Stallable(..)
+  ( module Simulator.Data.Processor
+  , module Simulator.Data.Simdata
+  , module Simulator.Data.Registers
+  , module Simulator.Data.Instruction
+  , module Simulator.Data.Stage.Fetch
+  , module Simulator.Data.Stage.Decode
+  , module Simulator.Data.Stage.Issue
+  , module Simulator.Data.Stage.Execute
+  , module Simulator.Data.Stage.Writeback
   ) where
 
 import Data.Int
 import Data.Word
-import Data.List
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Sequence (Seq)
+import qualified Data.Sequence as Seq
 import Control.Lens
 
 import Simulator.Data.Simdata
 import Simulator.Data.Registers
-import Simulator.Data.Stallable
 import Simulator.Data.Instruction
 import Simulator.Data.Stage.Fetch
 import Simulator.Data.Stage.Decode
 import Simulator.Data.Stage.Issue
 import Simulator.Data.Stage.Execute
 import Simulator.Data.Stage.Writeback
+
+-- Define types for memories.
+type InstMem = Seq Word8
+type DataMem = Map Word32 Word8
+
+-- Let Template Haskell make the lenses for the stages.
+makeFields ''Fetch
+makeFields ''Decode
+makeFields ''Issue
+makeFields ''Execute
+makeFields ''Writeback
+
+-- Let Template Haskell make the lenses for Simdata.
+makeFields ''Simdata
+
+data Type = Scalar
+          | Pipeline
+          | Superscalar
+          deriving (Show, Eq, Read)
+
+data Options = Options
+  { _procType      :: Type
+  , _bypassEnabled :: Bool
+  , _pipelinedEUs  :: Bool
+  }
+-- Let Template Haskell make the lenses.
+makeFields ''Options
+
+newOptions :: Options
+newOptions = Options
+  { _procType      = Scalar
+  , _bypassEnabled = True
+  , _pipelinedEUs  = True
+  }
 
 -- |This data type contains all of the processors state.
 data Processor = Processor
@@ -68,13 +77,15 @@ data Processor = Processor
   , _executeStage    :: Execute
   , _wrbInputLatches :: [ Maybe (Register, Int32) ]
   , _writebackStage  :: Writeback
-  , _instMem         :: [ Word8 ]
-  , _dataMem         :: Map Word32 Word8
+  , _instMem         :: InstMem
+  , _dataMem         :: DataMem
   , _regFile         :: RegisterFile
   , _simData         :: Simdata
   , _instCycles      :: Inst Register -> Int
   , _options         :: Options
   }
+-- Let Template Haskell make the lenses.
+makeFields ''Processor
 
 newProcessor :: [ Word8 ] -> Int -> Int -> Processor
 newProcessor insts n_fetch n_eus = Processor
@@ -87,7 +98,7 @@ newProcessor insts n_fetch n_eus = Processor
   , _executeStage    = newExecute n_eus
   , _wrbInputLatches = []
   , _writebackStage  = newWriteback
-  , _instMem         = insts
+  , _instMem         = Seq.fromList insts
   , _dataMem         = Map.empty
   , _regFile         = newRegFile
   , _simData         = newSimdata
@@ -95,74 +106,11 @@ newProcessor insts n_fetch n_eus = Processor
   , _options         = newOptions
   }
 
-fetchStage :: Lens' Processor Fetch
-fetchStage = lens _fetchStage (\proc f -> proc { _fetchStage = f })
+-- Define getters and setters for memory.
+instMemItem :: Word32 -> Lens' InstMem Word8
+instMemItem i = lens (\mem   -> Seq.index mem (fromIntegral i))
+                     (\mem w -> Seq.update (fromIntegral i) w mem)
 
-decInputLatches :: Lens' Processor [ Maybe (Word8, Word8, Word8, Word8) ]
-decInputLatches = lens _decInputLatches (\proc d -> proc { _decInputLatches = d })
-
-decodeStage :: Lens' Processor Decode
-decodeStage = lens _decodeStage (\proc d -> proc { _decodeStage = d })
-
-issInputLatches :: Lens' Processor [ Maybe InstructionReg ]
-issInputLatches = lens _issInputLatches (\proc i -> proc { _issInputLatches = i })
-
-issueStage :: Lens' Processor Issue
-issueStage = lens _issueStage (\proc i -> proc { _issueStage = i })
-
-exeInputLatches :: Lens' Processor [ Maybe InstructionVal ]
-exeInputLatches = lens _exeInputLatches (\proc e -> proc { _exeInputLatches = e })
-
-executeStage :: Lens' Processor Execute
-executeStage = lens _executeStage (\proc e -> proc { _executeStage = e })
-
-wrbInputLatches :: Lens' Processor [ Maybe (Register, Int32) ]
-wrbInputLatches = lens _wrbInputLatches (\proc w -> proc { _wrbInputLatches = w })
-
-writebackStage :: Lens' Processor Writeback
-writebackStage = lens _writebackStage (\proc w -> proc { _writebackStage = w })
-
-instMem :: Lens' Processor [ Word8 ]
-instMem = lens _instMem (\proc i -> proc { _instMem = i })
-
-dataMem :: Lens' Processor (Map Word32 Word8)
-dataMem = lens _dataMem (\proc d -> proc { _dataMem = d })
-
-regFile :: Lens' Processor RegisterFile
-regFile = lens _regFile (\proc r -> proc { _regFile = r })
-
-simData :: Lens' Processor Simdata
-simData = lens _simData (\proc s -> proc { _simData = s })
-
-instCycles :: Lens' Processor (Inst Register -> Int)
-instCycles = lens _instCycles (\proc i -> proc { _instCycles = i })
-
-options :: Lens' Processor Options
-options = lens _options (\proc o -> proc { _options = o })
-
-data Options = Options
-  { _procType      :: Type
-  , _bypassEnabled :: Bool
-  , _pipelinedEUs  :: Bool
-  }
-
-newOptions :: Options
-newOptions = Options
-  { _procType      = Scalar
-  , _bypassEnabled = True
-  , _pipelinedEUs  = True
-  }
-
-procType :: Lens' Options Type
-procType = lens _procType (\opts t -> opts { _procType = t })
-
-bypassEnabled :: Lens' Options Bool
-bypassEnabled = lens _bypassEnabled (\opts b -> opts { _bypassEnabled = b })
-
-pipelinedEUs :: Lens' Options Bool
-pipelinedEUs = lens _pipelinedEUs (\opts p -> opts { _pipelinedEUs = p })
-
-data Type = Scalar
-          | Pipeline
-          | Superscalar
-          deriving (Show, Eq, Read)
+dataMemItem :: Word32 -> Lens' DataMem Word8
+dataMemItem i = lens (\mem   -> Map.findWithDefault 0 i mem)
+                     (\mem w -> Map.insert i w mem)

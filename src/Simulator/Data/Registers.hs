@@ -1,12 +1,13 @@
+{-# LANGUAGE RankNTypes #-}
 module Simulator.Data.Registers
-  ( Register(..)
-  , pc
-  , RegisterFile
-  , Flag(..)
-  , newRegFile
+  ( module Simulator.Data.Registers
   ) where
 
 import Data.Int
+import Control.Lens
+
+-- |This type defines a register file for the processor.
+type RegisterFile = [ (Register, (Int32, Maybe Flag)) ]
 
 -- |This data type defines an enum which enumerates all possible registers.
 data Register
@@ -32,9 +33,30 @@ data Register
 pc :: Register
 pc = R0
 
-type RegisterFile = [ (Register, Int32, Maybe Flag) ]
-
+-- |This defines the flags a register in the register file can have. It can be
+--  used to indicate a registers value is in the process of being updated.
 data Flag = Invalid--TODO
+  deriving (Show, Eq, Read)
 
 newRegFile :: RegisterFile
-newRegFile = zip3 [(minBound :: Register)..] (repeat 0) (repeat Nothing)
+newRegFile = zip [(minBound :: Register)..] (repeat (0, Nothing))
+
+regVal :: Register -> Lens' RegisterFile Int32
+regVal r = lens (\rf   -> searchWith (\(v, _) -> v     ) r rf)
+                (\rf v -> updateWith (\(_, f) -> (v, f)) r rf)
+
+regFlag :: Register -> Lens' RegisterFile (Maybe Flag)
+regFlag r = lens (\rf   -> searchWith (\(_, f) -> f     ) r rf)
+                 (\rf f -> updateWith (\(v, _) -> (v, f)) r rf)
+
+searchWith :: (Eq a) => (b -> c) -> a -> [ (a, b) ] -> c
+searchWith f r []           = error "searchWith: element not part of the specified list."
+searchWith f r ((x, y) : l)
+  | r == x                  = f y
+  | otherwise               = searchWith f r l
+
+updateWith :: (Eq a) => (b -> b) -> a -> [ (a, b) ] -> [ (a, b) ]
+updateWith f r []           = error "updateWith: element not part of the specified list."
+updateWith f r ((x, y) : l)
+  | r == x                  = (x, f y) : l
+  | otherwise               = (x,   y) : updateWith f r l
