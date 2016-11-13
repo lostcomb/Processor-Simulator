@@ -6,15 +6,15 @@ module Simulator.Data.Stage.Issue
 import Simulator.Data.Instruction
 
 data Issue = Issue
-  { _issueStalled :: Bool
-  , _issueWindow  :: [ InstructionReg ]
-  , _execWindow   :: [ InstructionReg ]
+  { _issueStalled      :: Bool
+  , _issueIssueWindow  :: [ InstructionReg ]
+  , _issueExecWindow   :: [ InstructionReg ]
   }
   deriving (Show, Eq, Read)
 
 newIssue :: Issue
 newIssue = Issue
-  { _issueStalled = False
-  , _issueWindow  = []
-  , _execWindow   = []
+  { _issueStalled      = False
+  , _issueIssueWindow  = []
+  , _issueExecWindow   = []
   }

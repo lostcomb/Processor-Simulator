@@ -3,19 +3,18 @@ module Simulator.Control.Stage.Writeback
   ) where
 
 import Data.Int
+import Control.Lens
 import Control.Monad.State
 
-import Data.Stage
-import Data.Registers
-import Data.Processor
-import Data.Instruction
+import Simulator.Data.Processor
 
-writeback :: (Processor p, RegisterFile p) => [ Maybe (Register, Int32) ] -> State p ()
-writeback = do w <- getWriteback
-               if stalled w
-                 then return ()
-                 else mapM_ writeback'
+writeback :: [ Maybe (Register, Int32) ] -> State Processor ()
+writeback input = do isStalled <- use $ writebackStage.stalled
+                     if isStalled
+                       then return ()
+                       else mapM_ writeback' input
 
-writeback' :: (Processor p, RegisterFile p) => Maybe (Register, Int32) -> State p ()
+writeback' :: Maybe (Register, Int32) -> State Processor ()
 writeback' Nothing = return ()
-writeback' (Just (r, v)) = setReg r v
+writeback' (Just (r, v)) = do regFile.regVal r .= v
+                              regFile.regFlag r .= Clean

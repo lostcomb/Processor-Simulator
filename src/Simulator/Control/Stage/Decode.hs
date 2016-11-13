@@ -5,25 +5,22 @@ module Simulator.Control.Stage.Decode
 import Data.Bits
 import Data.Word
 import Data.List
+import Control.Lens
 import Control.Monad.State
 
-import Simulator.Data.Stage
 import Simulator.Data.Processor
-import Simulator.Data.Registers
-import Simulator.Data.Instruction
 
-decode :: (Processor p, Decode p) => [ Maybe (Word8, Word8, Word8, Word8) ] -> State p [ Maybe InstructionReg ]
-decode = do d <- getDecode
-            if stalled d
-              then do output <- getIssInputLatches
-                      return output
-              else mapM decode'
+decode :: [ Maybe (Word8, Word8, Word8, Word8) ] -> State Processor [ Maybe InstructionReg ]
+decode input = do isStalled <- use $ decodeStage.stalled
+                  if isStalled
+                    then use issInputLatches >>= return
+                    else mapM decode' input
 
-decode' :: (Processor p, Decode p) => Maybe (Word8, Word8, Word8, Word8) -> State p (Maybe InstructionReg)
+decode' :: Maybe (Word8, Word8, Word8, Word8) -> State Processor (Maybe InstructionReg)
 decode' Nothing = return Nothing
 decode' (Just i) = do let inst = decodeInst i
-                      cycles <- getInstructionCycles inst
-                      return $ Just $ Instruction cycles inst
+                      cycles <- use $ instCycles
+                      return $ Just $ Instruction (cycles inst) inst
 
 decodeInst :: (Word8, Word8, Word8, Word8) -> Inst Register
 decodeInst (b1, b2, b3, b4) = case op_code of

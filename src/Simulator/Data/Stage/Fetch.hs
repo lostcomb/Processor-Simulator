@@ -6,15 +6,15 @@ module Simulator.Data.Stage.Fetch
 import Data.Word
 
 data Fetch = Fetch
-  { _fetchStalled   :: Bool
-  , _noOfInsts      :: Int
-  , _programCounter :: Word32
+  { _fetchStalled        :: Bool
+  , _fetchNoOfInsts      :: Int
+  , _fetchProgramCounter :: Word32
   }
   deriving (Show, Eq, Read)
 
 newFetch :: Int -> Fetch
 newFetch n = Fetch
-  { _fetchStalled   = False
-  , _noOfInsts      = n
-  , _programCounter = 0
+  { _fetchStalled        = False
+  , _fetchNoOfInsts      = n
+  , _fetchProgramCounter = 0
   }

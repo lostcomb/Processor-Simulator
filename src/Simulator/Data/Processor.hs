@@ -44,7 +44,7 @@ makeFields ''Execute
 makeFields ''Writeback
 
 -- Let Template Haskell make the lenses for Simdata.
-makeFields ''Simdata
+makeLenses ''Simdata
 
 data Type = Scalar
           | Pipeline
@@ -57,7 +57,7 @@ data Options = Options
   , _pipelinedEUs  :: Bool
   }
 -- Let Template Haskell make the lenses.
-makeFields ''Options
+makeLenses ''Options
 
 newOptions :: Options
 newOptions = Options
@@ -85,7 +85,7 @@ data Processor = Processor
   , _options         :: Options
   }
 -- Let Template Haskell make the lenses.
-makeFields ''Processor
+makeLenses ''Processor
 
 newProcessor :: [ Word8 ] -> Int -> Int -> Processor
 newProcessor insts n_fetch n_eus = Processor
@@ -106,11 +106,13 @@ newProcessor insts n_fetch n_eus = Processor
   , _options         = newOptions
   }
 
--- Define getters and setters for memory.
-instMemItem :: Word32 -> Lens' InstMem Word8
-instMemItem i = lens (\mem   -> Seq.index mem (fromIntegral i))
-                     (\mem w -> Seq.update (fromIntegral i) w mem)
+class HasItem a where
+  item :: Word32 -> Lens' a Word8
 
-dataMemItem :: Word32 -> Lens' DataMem Word8
-dataMemItem i = lens (\mem   -> Map.findWithDefault 0 i mem)
-                     (\mem w -> Map.insert i w mem)
+instance HasItem InstMem where
+  item i = lens (\mem   -> Seq.index mem (fromIntegral i))
+                (\mem w -> Seq.update (fromIntegral i) w mem)
+
+instance HasItem DataMem where
+  item i = lens (\mem   -> Map.findWithDefault 0 i mem)
+                (\mem w -> Map.insert i w mem)
