@@ -5,11 +5,9 @@ module Compiler.Generator
   ( generate
   ) where
 
-import Compiler.SyntaxTree
-import Compiler.Instruction
 import Compiler.GeneratorState
 
-
+-- TODO: Update to use the new stateful generatorstate.
 
 generate :: Program -> [ Instruction ]
 generate (main:funcs) = getInstructions
