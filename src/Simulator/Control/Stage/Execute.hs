@@ -1,4 +1,4 @@
-module Control.Stage.Execute
+module Simulator.Control.Stage.Execute
   ( execute
   ) where
 

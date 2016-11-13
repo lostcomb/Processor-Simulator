@@ -1,4 +1,4 @@
-module Data.Stallable
+module Simulator.Data.Stallable
   ( Stallable(..)
   ) where
 

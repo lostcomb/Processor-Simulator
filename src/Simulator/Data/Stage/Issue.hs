@@ -1,4 +1,4 @@
-module Data.Stage.Issue
+module Simulator.Data.Stage.Issue
   ( Issue
   , newIssue
   , issueWindow
@@ -6,8 +6,8 @@ module Data.Stage.Issue
   ) where
 
 import Control.Lens
-import Data.Stallable
-import Data.Instruction
+import Simulator.Data.Stallable
+import Simulator.Data.Instruction
 
 data Issue = Issue
   { _stalled      :: Bool
@@ -30,4 +30,4 @@ issueWindow :: Lens' Issue [ InstructionReg ]
 issueWindow = lens _issueWindow (\iss i -> iss { _issueWindow = i })
 
 execWindow :: Lens' Issue [ InstructionReg ]
-execWindow = lens _execWindow (\iss e -> iss { execWindow = e })
+execWindow = lens _execWindow (\iss e -> iss { _execWindow = e })

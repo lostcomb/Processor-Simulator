@@ -1,4 +1,4 @@
-module Control.Stage.Issue
+module Simulator.Control.Stage.Issue
   ( issue
   ) where
 

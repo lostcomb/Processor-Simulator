@@ -14,6 +14,20 @@
   (major1) == 4 && (major2) <  9 || \
   (major1) == 4 && (major2) == 9 && (minor) <= 0)
 
+/* package containers-0.5.7.1 */
+#define VERSION_containers "0.5.7.1"
+#define MIN_VERSION_containers(major1,major2,minor) (\
+  (major1) <  0 || \
+  (major1) == 0 && (major2) <  5 || \
+  (major1) == 0 && (major2) == 5 && (minor) <= 7)
+
+/* package lens-4.14 */
+#define VERSION_lens "4.14"
+#define MIN_VERSION_lens(major1,major2,minor) (\
+  (major1) <  4 || \
+  (major1) == 4 && (major2) <  14 || \
+  (major1) == 4 && (major2) == 14 && (minor) <= 0)
+
 /* tool alex-3.1.7 */
 #define TOOL_VERSION_alex "3.1.7"
 #define MIN_TOOL_VERSION_alex(major1,major2,minor) (\

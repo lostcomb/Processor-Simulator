@@ -1,4 +1,4 @@
-module Data.Stage.Fetch
+module Simulator.Data.Stage.Fetch
   ( Fetch
   , newFetch
   , noOfInsts
@@ -7,7 +7,7 @@ module Data.Stage.Fetch
 
 import Data.Word
 import Control.Lens
-import Data.Stallable
+import Simulator.Data.Stallable
 
 data Fetch = Fetch
   { _stalled         :: Bool

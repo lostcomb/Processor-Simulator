@@ -1,4 +1,4 @@
-module Data.Simdata
+module Simulator.Data.Simdata
   ( Simdata
   , newSimdata
   , cycles
@@ -15,7 +15,7 @@ module Data.Simdata
   ) where
 
 import Control.Lens
-import Data.Instruction
+import Simulator.Data.Instruction
 
 data Simdata = Simdata
   -- Counts the number of cycles executed.

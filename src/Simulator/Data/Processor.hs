@@ -1,9 +1,9 @@
-module Data.Processor
+module Simulator.Data.Processor
   (-- Processor types.
     Processor
    -- Processor functions
-  , fetchStage, decInputLatches, decodeStage, issInputLatches, issueStage
-  , exeInputLatches, executeStage, wrbInputLatches, writebackStage
+  , newProcessor, fetchStage, decInputLatches, decodeStage, issInputLatches
+  , issueStage, exeInputLatches, executeStage, wrbInputLatches, writebackStage
   , instMem, dataMem, regFile, simData, instCycles, options
    -- Option types.
   , Options, Type(..)
@@ -12,31 +12,27 @@ module Data.Processor
    -- Fetch type.
   , Fetch
    -- Fetch functions.
-  , newFetch, noOfInsts, programCounter
+  , noOfInsts, programCounter
    -- Decode type.
   , Decode
-   -- Decode functions.
-  , newDecode
    -- Issue type.
   , Issue
    -- Issue functions.
-  , newIssue, issueWindow, execWindow
+  , issueWindow, execWindow
    -- Execute type.
   , Execute
    -- Execute functions.
-  , newExecute, noOfEUs, bypassValues
+  , noOfEUs, bypassValues
    -- Writeback type.
   , Writeback
-   -- Writeback functions.
-  , newWriteback
    -- RegisterFile types.
   , Register(..), RegisterFile, Flag(..)
    -- RegisterFile functions.
-  , pc, newRegFile
+  , pc
    -- Simdata type.
   , Simdata
    -- Simdata functions.
-  , newSimdata, cycles, insts, instsPerCycle, fetchStalledCount
+  , cycles, insts, instsPerCycle, fetchStalledCount
   , decodeStalledCount, issueStalledCount, executeStalledCount
   , writebackStalledCount, correctPredictions, incorrectPredictions
   , outOfOrderPerCycle
@@ -49,16 +45,17 @@ import Data.Word
 import Data.List
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Control.Lens
 
-import Data.Simdata
-import Data.Registers
-import Data.Stallable
-import Data.Instruction
-import Data.Stage.Fetch
-import Data.Stage.Decode
-import Data.Stage.Issue
-import Data.Stage.Execute
-import Data.Stage.Writeback
+import Simulator.Data.Simdata
+import Simulator.Data.Registers
+import Simulator.Data.Stallable
+import Simulator.Data.Instruction
+import Simulator.Data.Stage.Fetch
+import Simulator.Data.Stage.Decode
+import Simulator.Data.Stage.Issue
+import Simulator.Data.Stage.Execute
+import Simulator.Data.Stage.Writeback
 
 -- |This data type contains all of the processors state.
 data Processor = Processor
@@ -77,6 +74,25 @@ data Processor = Processor
   , _simData         :: Simdata
   , _instCycles      :: Inst Register -> Int
   , _options         :: Options
+  }
+
+newProcessor :: [ Word8 ] -> Int -> Int -> Processor
+newProcessor insts n_fetch n_eus = Processor
+  { _fetchStage      = newFetch n_fetch
+  , _decInputLatches = []
+  , _decodeStage     = newDecode
+  , _issInputLatches = []
+  , _issueStage      = newIssue
+  , _exeInputLatches = []
+  , _executeStage    = newExecute n_eus
+  , _wrbInputLatches = []
+  , _writebackStage  = newWriteback
+  , _instMem         = insts
+  , _dataMem         = Map.empty
+  , _regFile         = newRegFile
+  , _simData         = newSimdata
+  , _instCycles      = const 1 --TODO
+  , _options         = newOptions
   }
 
 fetchStage :: Lens' Processor Fetch
@@ -128,6 +144,13 @@ data Options = Options
   { _procType      :: Type
   , _bypassEnabled :: Bool
   , _pipelinedEUs  :: Bool
+  }
+
+newOptions :: Options
+newOptions = Options
+  { _procType      = Scalar
+  , _bypassEnabled = True
+  , _pipelinedEUs  = True
   }
 
 procType :: Lens' Options Type

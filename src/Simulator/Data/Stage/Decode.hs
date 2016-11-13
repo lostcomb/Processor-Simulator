@@ -1,10 +1,10 @@
-module Data.Stage.Decode
+module Simulator.Data.Stage.Decode
   ( Decode
   , newDecode
   ) where
 
 import Control.Lens
-import Data.Stallable
+import Simulator.Data.Stallable
 
 data Decode = Decode
   { _stalled :: Bool

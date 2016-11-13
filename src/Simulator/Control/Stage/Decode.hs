@@ -1,4 +1,4 @@
-module Control.Stage.Decode
+module Simulator.Control.Stage.Decode
   ( decode
   ) where
 
@@ -7,10 +7,10 @@ import Data.Word
 import Data.List
 import Control.Monad.State
 
-import Data.Stage
-import Data.Processor
-import Data.Registers
-import Data.Instruction
+import Simulator.Data.Stage
+import Simulator.Data.Processor
+import Simulator.Data.Registers
+import Simulator.Data.Instruction
 
 decode :: (Processor p, Decode p) => [ Maybe (Word8, Word8, Word8, Word8) ] -> State p [ Maybe InstructionReg ]
 decode = do d <- getDecode

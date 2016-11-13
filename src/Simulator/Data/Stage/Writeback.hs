@@ -1,10 +1,10 @@
-module Data.Stage.Writeback
+module Simulator.Data.Stage.Writeback
   ( Writeback
   , newWriteback
   ) where
 
 import Control.Lens
-import Data.Stallable
+import Simulator.Data.Stallable
 
 data Writeback = Writeback
   { _stalled :: Bool

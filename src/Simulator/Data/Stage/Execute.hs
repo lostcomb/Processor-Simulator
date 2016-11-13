@@ -1,4 +1,4 @@
-module Data.Stage.Execute
+module Simulator.Data.Stage.Execute
   ( Execute
   , newExecute
   , noOfEUs
@@ -7,8 +7,8 @@ module Data.Stage.Execute
 
 import Data.Int
 import Control.Lens
-import Data.Stallable
-import Data.Registers
+import Simulator.Data.Stallable
+import Simulator.Data.Registers
 
 data Execute = Execute
   { _stalled      :: Bool

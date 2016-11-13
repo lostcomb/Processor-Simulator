@@ -1,16 +1,16 @@
-module Control.Stage.Fetch
+module Simulator.Control.Stage.Fetch
   ( fetch
   ) where
 
 import Data.Word
-import Data.Stage
-import Data.Processor
-import Control.Monad.State
+import Control.Lens
 
-fetch :: (Processor p, Fetch p) => State p [ Maybe (Word8, Word8, Word8, Word8) ]
-fetch = do n_insts <- getNoOfInsts
-           f <- getFetch
-           if stalled f
+import Simulator.Data.Processor
+
+fetch :: State p [ Maybe (Word8, Word8, Word8, Word8) ]
+fetch = do n_insts <- fetchStage.noOfInsts
+           stalled? <- fetchStage.stalled
+           if stalled?
              then do output <- getDecInputLatches
                      return output
              else mapM (\_ -> do pc_val <- getProgramCounter

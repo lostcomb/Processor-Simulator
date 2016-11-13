@@ -1,7 +1,8 @@
-module Data.Registers
+module Simulator.Data.Registers
   ( Register(..)
   , pc
   , RegisterFile
+  , Flag(..)
   , newRegFile
   ) where
 

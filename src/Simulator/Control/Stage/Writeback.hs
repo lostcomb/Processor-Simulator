@@ -1,4 +1,4 @@
-module Control.Stage.Writeback
+module Simulator.Control.Stage.Writeback
   ( writeback
   ) where
 

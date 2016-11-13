@@ -1,6 +1,6 @@
 {-# LANGUAGE GADTs #-}
 
-module Data.Instruction
+module Simulator.Data.Instruction
   ( Inst(..)
   , Instruction(..)
   , InstructionVal
@@ -8,7 +8,7 @@ module Data.Instruction
   ) where
 
 import Data.Int
-import Data.Registers
+import Simulator.Data.Registers
 
 -- |This defines the type for Instructions whose registers have been swapped
 --  out for their values.
