@@ -7,6 +7,9 @@ module Compiler.Instruction
   , Register
   , Offset
   , Instruction(..)
+  , pc
+  , sp
+  , gprb
   ) where
 
 import Data.Either
@@ -15,6 +18,13 @@ type Label     = String
 type Constant  = Int
 type Register  = Int
 type Offset    = Either Constant Label
+
+-- |These constants define the program counter (pc), the stack pointer (sp)
+--  and the base general purpose register (gprb).
+pc, sp, gprb :: Register
+pc = 0
+sp = 1
+gprb = 2
 
 data Instruction where
   -- Rd <- Ri + Rj.
@@ -51,7 +61,7 @@ data Instruction where
   HALT  ::                                               Instruction
   -- Program marker, not to be executed by the processor.
   LABEL :: Label                                      -> Instruction
-  deriving (Eq, Read)
+  deriving (Eq, Read, Ord)
 
 instance Show Instruction where
   show (ADD rd ri rj          ) = "ADD r" ++ show rd ++ " r" ++ show ri ++ " r" ++ show rj

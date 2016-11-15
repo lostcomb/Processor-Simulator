@@ -2,7 +2,7 @@
 --  processor.
 
 module Assembler.Parser
-  ( parseAssembly
+  ( Assembler.Parser.parse
   ) where
 
 import Assembler.Instruction
@@ -24,10 +24,10 @@ languageDef = emptyDef
 
 -- |This function returns the result of parsing @str@. Calls 'error' if @str@
 --  is not valid assembly.
-parseAssembly :: String -> [ Instruction ]
-parseAssembly str = case parse (whiteSpace lexer *> instructionParser <* eof) "" str of
-                      Left  e -> error $ show e
-                      Right r -> r
+parse :: String -> [ Instruction ]
+parse str = case Text.Parsec.parse (whiteSpace lexer *> instructionParser <* eof) "" str of
+              Left  e -> error $ show e
+              Right r -> r
 
 -- |The syntax for an instruction is:
 --  <instruction> ::= <label>

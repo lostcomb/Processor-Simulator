@@ -5,229 +5,299 @@ module Compiler.Generator
   ( generate
   ) where
 
+import Control.Monad.State
 import Compiler.GeneratorState
 
--- TODO: Update to use the new stateful generatorstate.
-
+-- |This function generates @prog@, and returns a list of instructions.
 generate :: Program -> [ Instruction ]
-generate (main:funcs) = getInstructions
-                      . appendInstructions [ LABEL "_end"
-                                           , HALT ]
-                      . foldl (flip genFunction) s' $ funcs
-  where s  = foldl (flip addFunction) newGeneratorState funcs
-        s' = genMain main s
-generate _            = error "`main` function not declared."
+generate prog = evalState (generate' prog) newGenerator
 
-genMain :: Function -> GeneratorState -> GeneratorState
-genMain (Function _ i _ stmts) s = appendInstructions [ LDC r (Right "_end")
-                                                      , JMP r ] s'5
-  where s'1 = declareVariable (Var "_return") s
-        s'2 = declareVariable (Var "_return_addr") s'1
-        s'3 = appendInstructions [ LABEL i ] s'2
-        s'4 = genStatements stmts s'3
-        ([ r ], s'5) = getNRegisters 1 s'4
+-- |This functions generates @prog@.
+generate' :: Program -> State Generator [ Instruction ]
+generate' (main:funcs) = do mapM addFunction funcs
+                            genMain main
+                            mapM genFunction funcs
+                            addInst $ LABEL "_end"
+                            addInst $ HALT
+                            insts <- getInsts
+                            return insts
 
-genFunction :: Function -> GeneratorState -> GeneratorState
-genFunction (Function _ i args stmts) s = appendInstructions [ LDC r (Left 1)
-                                                             , ADD r r sp
-                                                             , LDM r r
-                                                             , JMP r ] s'6
-  where s'1 = declareVariable (Var "_return") s
-        s'2 = declareVariable (Var "_return_addr") s'1
-        s'3 = foldl (\s arg -> declareArgument arg s) s'2 args
-        s'4 = appendInstructions [ LABEL i ] s'3
-        s'5 = genStatements stmts s'4
-        ([ r ], s'6) = getNRegisters 1 s'5
+-- |This function generates the main function.
+genMain :: Function -> State Generator ()
+genMain (Function _ i _ stmts) = do declareVariable (Var "_return")
+                                    declareVariable (Var "_return_addr")
+                                    addInst $ LABEL i
+                                    genStatements stmts
+                                    setRegister gprb
+                                    r <- getRegister
+                                    addInst $ LDC r (Right "_end")
+                                    addInst $ JMP r
+                                    resetStack
 
-genStatements :: [ Statement ] -> GeneratorState -> GeneratorState
-genStatements stmts s = resetRegisterNo . foldl (flip genStatement) s' $ stmts
-  where s' = resetRegisterNo s
+-- |This function generates a function.
+genFunction :: Function -> State Generator ()
+genFunction (Function _ i args stmts) = do declareVariable (Var "_return")
+                                           declareVariable (Var "_return_addr")
+                                           mapM declareArgument args
+                                           addInst $ LABEL i
+                                           genStatements stmts
+                                           setRegister gprb
+                                           r <- getRegister
+                                           addInst $ LDC r (Left 1)
+                                           addInst $ ADD r r sp
+                                           addInst $ LDM r r
+                                           addInst $ JMP r
+                                           resetStack
 
-genStatement :: Statement -> GeneratorState -> GeneratorState
-genStatement (Declaration _ v) s = declareVariable v s
+-- |This function generates the statements @stmts@.
+genStatements :: [ Statement ] -> State Generator ()
+genStatements stmts = mapM_ (\stmt -> do setRegister gprb
+                                         genStatement stmt) stmts
 
-genStatement (Assignment (Var i) e) s = appendInstructions insts s'3
-  where (r1, s'1)     = genExpr e s
-        ([ r2 ], s'2) = getNRegisters 1 s'1
-        s'3           = case getOffset (Var i) s'2 of
-                          (Left  offset ) -> appendInstructions [ LDC r2 (Left offset)
-                                                                , ADD r2 r2 sp ] s'2
-                          (Right pointer) -> appendInstructions [ LDC r2 (Left pointer)
-                                                                , ADD r2 r2 sp
-                                                                , LDM r2 r2 ] s'2
-        insts         = [ STM r2 r1 ]
-genStatement (Assignment (Arr i index) e) s = appendInstructions insts s'4
-  where (r1, s'1)     = genExpr e s
-        (r2, s'2)     = genExpr index s'1
-        ([ r3 ], s'3) = getNRegisters 1 s'2
-        s'4           = case getOffset (Arr i index) s'3 of
-                          (Left  offset ) -> appendInstructions [ LDC r3 (Left offset)
-                                                                , ADD r3 r3 sp ] s'3
-                          (Right pointer) -> appendInstructions [ LDC r3 (Left pointer)
-                                                                , ADD r3 r3 sp
-                                                                , LDM r3 r3 ] s'3
-        insts         = [ ADD r3 r3 r2
-                        , STM r3 r1
-                        ]
+-- |This function generates a statement.
+genStatement :: Statement -> State Generator ()
+genStatement (Declaration _ v)
+  = declareVariable v
 
-genStatement (Cond e s1 s2) s = appendInstructions [ LABEL l2 ] s'6
-  where (r1, s'1)         = genExpr e s
-        ([ l1, l2 ], s'2) = getNLabels 2 s'1
-        s'3               = appendInstructions [ BEZ r1 (Right l1) ] s'2
-        s'4               = genStatements s1 s'3
-        s'5               = appendInstructions [ LDC r1 (Right l2)
-                                               , JMP r1
-                                               , LABEL l1 ] s'4
-        s'6               = genStatements s2 s'5
+genStatement (Assignment (Var i) e)
+  = do r1 <- genExpr e
+       r2 <- getRegister
+       offset <- getOffset (Var i)
+       case offset of
+         (Left  o) -> do addInst $ LDC r2 (Left o)
+                         addInst $ ADD r2 r2 sp
+                         addInst $ STM r2 r1
+         (Right p) -> do addInst $ LDC r2 (Left p)
+                         addInst $ ADD r2 r2 sp
+                         addInst $ LDM r2 r2
+                         addInst $ STM r2 r1
 
-genStatement (While e st) s = appendInstructions insts s'5
-  where ([ l1, l2 ], s'1) = getNLabels 2 s
-        s'2               = appendInstructions [ LABEL l1 ] s'1
-        (r1, s'3)         = genExpr e s'2
-        s'4               = appendInstructions [ BEZ r1 (Right l2) ] s'3
-        s'5               = genStatements st s'4
-        insts             = [ LDC r1 (Right l1)
-                            , JMP r1
-                            , LABEL l2
-                            ]
+genStatement (Assignment (Arr i index) e)
+  = do r1 <- genExpr e
+       r2 <- genExpr index
+       r3 <- getRegister
+       offset <- getOffset (Arr i index)
+       case offset of
+         (Left  o) -> do addInst $ LDC r3 (Left o)
+                         addInst $ ADD r3 r3 sp
+                         addInst $ ADD r3 r3 r2
+                         addInst $ STM r3 r1
+         (Right p) -> do addInst $ LDC r3 (Left p)
+                         addInst $ ADD r3 r3 sp
+                         addInst $ LDM r3 r3
+                         addInst $ ADD r3 r3 r2
+                         addInst $ STM r3 r1
 
-genStatement (FunctionCall f) s = snd . genFuncCall f $ s
+genStatement (Cond e s1 s2)
+  = do r1 <- genExpr e
+       elseL <- getLabel
+       endL <- getLabel
+       addInst $ BEZ r1 (Right elseL)
+       genStatements s1
+       addInst $ LDC r1 (Right endL)
+       addInst $ JMP r1
+       addInst $ LABEL elseL
+       genStatements s2
+       addInst $ LABEL endL
 
-genStatement (Return e) s = appendInstructions insts s'2
-  where (r1, s'1)                 = genExpr e s
-        ([ r2 ], s'2)             = getNRegisters 1 s'1
-        (Left return_offset)      = getOffset (Var "_return") s'2
-        (Left return_addr_offset) = getOffset (Var "_return_addr") s'2
-        insts                     = [ LDC r2 (Left return_offset)
-                                    , ADD r2 r2 sp
-                                    , STM r2 r1
-                                    , LDC r2 (Left return_addr_offset)
-                                    , ADD r2 r2 sp
-                                    , LDM r2 r2
-                                    , JMP r2
-                                    ]
+genStatement (While e st)
+  = do startL <- getLabel
+       endL <- getLabel
+       addInst $ LABEL startL
+       r1 <- genExpr e
+       addInst $ BEZ r1 (Right endL)
+       genStatements st
+       addInst $ LDC r1 (Right startL)
+       addInst $ JMP r1
+       addInst $ LABEL endL
 
-genFuncCall :: FuncCall -> GeneratorState -> (Int, GeneratorState)
-genFuncCall (FuncCall i exprs) s = (r1, s'5)
-  where args                  = getFunctionArgs i s
-        params                = zip args exprs
-        stack_size            = getStackSize s
-        ([ l ], s'1)          = getNLabels 1 s
-        ([ r1, r2, r3 ], s'2) = getNRegisters 3 s'1
-        s'3                   = appendInstructions [ LDC r1 (Left stack_size)
-                                                   , ADD sp sp r1
-                                                   , LDC r2 (Left 1)
-                                                   , ADD r3 r2 sp
-                                                   , LDC r1 (Right l)
-                                                   , STM r3 r1 ] s'2
-        s'4                   = foldl pushParam s'3 params
-        s'5                   = appendInstructions [ LDC r2 (Right i)
-                                                   , JMP r2
-                                                   , LABEL l
-                                                   , LDM r1 sp -- Load the return value into r1.
-                                                   , LDC r2 (Left stack_size)
-                                                   , SUB sp sp r2 ] s'4
-        pushParam s (Arg _ _ True, EVar v) = appendInstructions [ ADD r3 r3 r2
-                                                                , STM r3 r ] s'
-          where (r, s') = case getOffset v s of
-                            (Left  offset ) -> (r1, appendInstructions [ LDC r1 (Left $ stack_size - offset)
-                                                                       , SUB r1 sp r1 ] s)
-                            (Right pointer) -> (r1, appendInstructions [ LDC r1 (Left $ stack_size - pointer)
-                                                                       , SUB r1 sp r1
-                                                                       , LDM r1 r1 ] s)
-        pushParam s (_           , ex    ) = appendInstructions [ ADD r3 r3 r2
-                                                                , STM r3 r ] s'
-          where (r, s') = genExpr ex s
+genStatement (FunctionCall f)
+  = do genFuncCall f
+       return ()
 
-genExpr :: Expression -> GeneratorState -> (Int, GeneratorState)
-genExpr (TRUE     ) s = (r, appendInstructions [ LDC r (Left 1) ] s'1)
-  where ([ r ], s'1) = getNRegisters 1 s
+genStatement (Return e)
+  = do r1 <- genExpr e
+       r2 <- getRegister
+       (Left ret_o) <- getOffset (Var "_return")
+       (Left ret_addr_o) <- getOffset (Var "_return_addr")
+       addInst $ LDC r2 (Left ret_o)
+       addInst $ ADD r2 r2 sp
+       addInst $ STM r2 r1
+       addInst $ LDC r2 (Left ret_addr_o)
+       addInst $ ADD r2 r2 sp
+       addInst $ LDM r2 r2
+       addInst $ JMP r2
 
-genExpr (FALSE    ) s = (r, appendInstructions [ LDC r (Left 0) ] s'1)
-  where ([ r ], s'1) = getNRegisters 1 s
+-- |This function generates a function call statement.
+genFuncCall :: FuncCall -> State Generator Int
+genFuncCall (FuncCall i exprs)
+  = do args <- getFunctionArgs i
+       stack_size <- getStackSize
+       retL <- getLabel
+       r1 <- getRegister
+       r2 <- getRegister
+       r3 <- getRegister
+       addInst $ LDC r1 (Left stack_size)
+       addInst $ ADD sp sp r1
+       addInst $ LDC r2 (Left 1)
+       addInst $ ADD r3 r2 sp
+       addInst $ LDC r1 (Right retL)
+       addInst $ STM r3 r1
+       mapM (pushParam r1 r2 r3 stack_size) (zip args exprs)
+       addInst $ LDC r2 (Right i)
+       addInst $ JMP r2
+       addInst $ LABEL retL
+       addInst $ LDM r1 sp
+       addInst $ LDC r2 (Left stack_size)
+       addInst $ SUB sp sp r2
+       return r1
+  where pushParam r1 r2 r3 stack_size (Arg _ _ True, EVar v)
+          = do offset <- getOffset v
+               case offset of
+                 (Left  o) -> do addInst $ LDC r1 (Left $ stack_size - o)
+                                 addInst $ SUB r1 sp r1
+                                 addInst $ ADD r3 r3 r2
+                                 addInst $ STM r3 r1
+                 (Right p) -> do addInst $ LDC r1 (Left $ stack_size - p)
+                                 addInst $ SUB r1 sp r1
+                                 addInst $ LDM r1 r1
+                                 addInst $ ADD r3 r3 r2
+                                 addInst $ STM r3 r1
+        pushParam r1 r2 r3 stack_size (_           , ex    )
+          = do r <- genExpr ex
+               addInst $ ADD r3 r3 r2
+               addInst $ STM r3 r
 
-genExpr (Const   i) s = (r, appendInstructions [ LDC r (Left i) ] s'1)
-  where ([ r ], s'1) = getNRegisters 1 s
+-- |This function generates an expression. It returns the register containing
+--  the result of the expression.
+genExpr :: Expression -> State Generator Int
+genExpr (TRUE     )
+  = do r <- getRegister
+       addInst $ LDC r (Left 1)
+       return r
 
-genExpr (Func   fn) s = genFuncCall fn s
+genExpr (FALSE    )
+  = do r <- getRegister
+       addInst $ LDC r (Left 0)
+       return r
 
-genExpr (EVar    v) s = (r , s'3)
-  where ([ r ], s'1) = getNRegisters 1 s
-        s'2          = case getOffset v s'1 of
-                         (Left  offset ) -> appendInstructions [ LDC r (Left offset)
-                                                               , ADD r r sp ] s'1
-                         (Right pointer) -> appendInstructions [ LDC r (Left pointer)
-                                                               , ADD r r sp
-                                                               , LDM r r ] s'1
-        s'3          = case v of
-                         (Var i      ) -> appendInstructions [ LDM r r ] s'2
-                         (Arr i index) -> let (r1, s'4) = genExpr index s'2 in
-                                          appendInstructions [ ADD r r r1
-                                                             , LDM r r ] s'4
+genExpr (Const   i)
+  = do r <- getRegister
+       addInst $ LDC r (Left i)
+       return r
 
-genExpr (Add e1 e2) s = (r, appendInstructions [ ADD r r1 r2 ] s'3)
-  where (r1, s'1)    = genExpr e1 s
-        (r2, s'2)    = genExpr e2 s'1
-        ([ r ], s'3) = getNRegisters 1 s'2
+genExpr (Func   fn)
+  = genFuncCall fn
 
-genExpr (Sub e1 e2) s = (r, appendInstructions [ SUB r r1 r2 ] s'3)
-  where (r1, s'1)    = genExpr e1 s
-        (r2, s'2)    = genExpr e2 s'1
-        ([ r ], s'3) = getNRegisters 1 s'2
+genExpr (EVar    v)
+  = do r <- getRegister
+       offset <- getOffset v
+       case offset of
+         (Left  o) -> do addInst $ LDC r (Left o)
+                         addInst $ ADD r r sp
+                         case v of
+                           (Var i      ) -> do addInst $ LDM r r
+                                               return r
+                           (Arr i index) -> do r1 <- genExpr index
+                                               addInst $ ADD r r r1
+                                               addInst $ LDM r r
+                                               return r
+         (Right p) -> do addInst $ LDC r (Left p)
+                         addInst $ ADD r r sp
+                         addInst $ LDM r r
+                         case v of
+                           (Var i      ) -> do addInst $ LDM r r
+                                               return r
+                           (Arr i index) -> do r1 <- genExpr index
+                                               addInst $ ADD r r r1
+                                               addInst $ LDM r r
+                                               return r
 
-genExpr (Mul e1 e2) s = (r, appendInstructions [ MUL r r1 r2 ] s'3)
-  where (r1, s'1)    = genExpr e1 s
-        (r2, s'2)    = genExpr e2 s'1
-        ([ r ], s'3) = getNRegisters 1 s'2
+genExpr (Add e1 e2)
+  = do r1 <- genExpr e1
+       r2 <- genExpr e2
+       addInst $ ADD r1 r1 r2
+       return r1
 
-genExpr (Div e1 e2) s = (r, appendInstructions [ DIV r r1 r2 ] s'3)
-  where (r1, s'1)    = genExpr e1 s
-        (r2, s'2)    = genExpr e2 s'1
-        ([ r ], s'3) = getNRegisters 1 s'2
+genExpr (Sub e1 e2)
+  = do r1 <- genExpr e1
+       r2 <- genExpr e2
+       addInst $ SUB r1 r1 r2
+       return r1
 
-genExpr (Eq  e1 e2) s = (r, appendInstructions [ CEQ r r1 r2 ] s'3)
-  where (r1, s'1)    = genExpr e1 s
-        (r2, s'2)    = genExpr e2 s'1
-        ([ r ], s'3) = getNRegisters 1 s'2
+genExpr (Mul e1 e2)
+  = do r1 <- genExpr e1
+       r2 <- genExpr e2
+       addInst $ MUL r1 r1 r2
+       return r1
 
-genExpr (Neq e1 e2) s = (r, appendInstructions [ CEQ r r1 r2
-                                               , NOT r r ] s'3)
-  where (r1, s'1)    = genExpr e1 s
-        (r2, s'2)    = genExpr e2 s'1
-        ([ r ], s'3) = getNRegisters 1 s'2
+genExpr (Div e1 e2)
+  = do r1 <- genExpr e1
+       r2 <- genExpr e2
+       addInst $ DIV r1 r1 r2
+       return r1
 
-genExpr (Lt  e1 e2) s = (r, appendInstructions [ CGT r r2 r1 ] s'3)
-  where (r1, s'1)    = genExpr e1 s
-        (r2, s'2)    = genExpr e2 s'1
-        ([ r ], s'3) = getNRegisters 1 s'2
+genExpr (Eq  e1 e2)
+  = do r1 <- genExpr e1
+       r2 <- genExpr e2
+       addInst $ CEQ r1 r1 r2
+       return r1
 
-genExpr (Gt  e1 e2) s = (r, appendInstructions [ CGT r r1 r2 ] s'3)
-  where (r1, s'1)    = genExpr e1 s
-        (r2, s'2)    = genExpr e2 s'1
-        ([ r ], s'3) = getNRegisters 1 s'2
+genExpr (Neq e1 e2)
+  = do r1 <- genExpr e1
+       r2 <- genExpr e2
+       addInst $ CEQ r1 r1 r2
+       addInst $ NOT r1 r1
+       addInst $ LDC r2 (Left 1)
+       addInst $ AND r1 r1 r2
+       return r1
 
-genExpr (Lte e1 e2) s = (r, appendInstructions [ CGT r r1 r2
-                                               , NOT r r ] s'3)
-  where (r1, s'1)    = genExpr e1 s
-        (r2, s'2)    = genExpr e2 s'1
-        ([ r ], s'3) = getNRegisters 1 s'2
+genExpr (Lt  e1 e2)
+  = do r1 <- genExpr e1
+       r2 <- genExpr e2
+       addInst $ CGT r1 r2 r1
+       return r1
 
-genExpr (Gte e1 e2) s = (r, appendInstructions [ CGT r r2 r1
-                                               , NOT r r ] s'3)
-  where (r1, s'1)    = genExpr e1 s
-        (r2, s'2)    = genExpr e2 s'1
-        ([ r ], s'3) = getNRegisters 1 s'2
+genExpr (Gt  e1 e2)
+  = do r1 <- genExpr e1
+       r2 <- genExpr e2
+       addInst $ CGT r1 r1 r2
+       return r1
 
-genExpr (Neg ex   ) s = (r, appendInstructions [ NOT r r1 ] s'2)
-  where (r1, s'1)    = genExpr ex s
-        ([ r ], s'2) = getNRegisters 1 s'1
+genExpr (Lte e1 e2)
+  = do r1 <- genExpr e1
+       r2 <- genExpr e2
+       addInst $ CGT r1 r1 r2
+       addInst $ NOT r1 r1
+       addInst $ LDC r2 (Left 1)
+       addInst $ AND r1 r1 r2
+       return r1
 
-genExpr (And e1 e2) s = (r, appendInstructions [ AND r r1 r2 ] s'3)
-  where (r1, s'1)    = genExpr e1 s
-        (r2, s'2)    = genExpr e2 s'1
-        ([ r ], s'3) = getNRegisters 1 s'2
+genExpr (Gte e1 e2)
+  = do r1 <- genExpr e1
+       r2 <- genExpr e2
+       addInst $ CGT r1 r2 r1
+       addInst $ NOT r1 r1
+       addInst $ LDC r2 (Left 1)
+       addInst $ AND r1 r1 r2
+       return r1
 
-genExpr (Or  e1 e2) s = (r, appendInstructions [ OR  r r1 r2 ] s'3)
-  where (r1, s'1)    = genExpr e1 s
-        (r2, s'2)    = genExpr e2 s'1
-        ([ r ], s'3) = getNRegisters 1 s'2
+genExpr (Neg ex   )
+  = do r1 <- genExpr ex
+       r2 <- getRegister
+       addInst $ NOT r1 r1
+       addInst $ LDC r2 (Left 1)
+       addInst $ AND r1 r1 r2
+       return r1
+
+genExpr (And e1 e2)
+  = do r1 <- genExpr e1
+       r2 <- genExpr e2
+       addInst $ AND r1 r1 r2
+       return r1
+
+genExpr (Or  e1 e2)
+  = do r1 <- genExpr e1
+       r2 <- genExpr e2
+       addInst $ OR r1 r1 r2
+       return r1
