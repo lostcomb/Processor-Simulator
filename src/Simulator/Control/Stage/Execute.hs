@@ -13,7 +13,9 @@ execute :: [ Maybe InstructionVal ] -> State Processor [ Maybe (Register, Int32)
 execute input = do isStalled <- executeStage.stalled
                    if isStalled
                      then use wrbInputLatches >>= return
-                     else mapM execute' input
+                     else do output <- mapM execute' input
+                             executeStage.bypassValues .= output
+                             return output
 
 execute' :: Maybe InstructionVal -> State Processor (Maybe (Register, Int32))
 execute' Nothing = return Nothing

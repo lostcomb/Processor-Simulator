@@ -5,10 +5,10 @@ module Compiler.Allocator
   ( allocate
   ) where
 
-import Data.List (delete, union, (\\))
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Maybe (fromJust, listToMaybe)
+import Data.List
+import Data.Maybe
 import Control.Monad
 import Control.Monad.State
 
@@ -166,12 +166,15 @@ getMaxColour = do nodes <- getNodes
                   return c
 
 -- |This function returns the lowest colour possible for the specified node.
+--  The edges should be from the specified node. Also, you can't rely on the
+--  colour of the node in the edge, you must get it from the graph as the node
+--  in the edge may not have been updated.
 getColour :: Node -> [ Edge ] -> State Allocator Colour
 getColour (Node n _) es
   = if n == pc then return pc
     else if n == sp then return sp
-    else do let colours = map (\(Edge _ (Node _ c)) -> c) es
-                loop k = if k `elem` colours
+    else do colours <- mapM (\(Edge _ (Node r _)) -> getNodeColour r) es
+            let loop k = if k `elem` colours
                            then loop (k + 1)
                            else return k
             loop (sp + 1)
@@ -180,13 +183,14 @@ getColour (Node n _) es
 --  program.
 buildInterferenceGraph :: [ Instruction ] -> State Allocator ()
 buildInterferenceGraph prog
-  = mapM_ (\n -> do def <- getDef n
-                    case def of
-                      [ d ] -> do addNode $ Node d 0
-                                  out_n <- getOut n
-                                  let edgeNodes = out_n \\ [ d ]
-                                  mapM_ (\n -> addEdge $ Edge (Node d 0) (Node n 0)) edgeNodes
-                      _      -> return ()) prog
+  = mapM_ (\n -> do
+      def <- getDef n
+      case def of
+        [ d ] -> do addNode $ Node d 0
+                    out_n <- getOut n
+                    let edgeNodes = out_n \\ [ d ]
+                    mapM_ (\n -> addEdge $ Edge (Node d 0) (Node n 0)) edgeNodes
+        _      -> return ()) prog
 
 -- |This function builds the in and out sets for the specified program.
 analyseLiveRegisters :: [ Instruction ] -> State Allocator ()
@@ -195,7 +199,7 @@ analyseLiveRegisters prog
                                  out_n' <- getOut n
                                  sucs_n <- getSuccessors n
                                  out_n <- foldM (\o i -> do in_i <- getIn i
-                                                            return $ o ++ in_i) [] sucs_n
+                                                            return $ o `union` in_i) [] sucs_n
                                  use_n <- getUse n
                                  def_n <- getDef n
                                  let in_n = use_n `union` (out_n \\ def_n)
@@ -213,31 +217,31 @@ analyseLiveRegisters prog
 buildUseDef :: [ Instruction ] -> State Allocator ()
 buildUseDef prog = mapM_ buildUseDef' prog
   where buildUseDef' i@(ADD rd ri rj) = do setDef i rd
-                                           setUse i [ pc, sp, ri, rj ]
+                                           setUse i $ nub [ pc, sp, ri, rj ]
         buildUseDef' i@(SUB rd ri rj) = do setDef i rd
-                                           setUse i [ pc, sp, ri, rj ]
+                                           setUse i $ nub [ pc, sp, ri, rj ]
         buildUseDef' i@(MUL rd ri rj) = do setDef i rd
-                                           setUse i [ pc, sp, ri, rj ]
+                                           setUse i $ nub [ pc, sp, ri, rj ]
         buildUseDef' i@(DIV rd ri rj) = do setDef i rd
-                                           setUse i [ pc, sp, ri, rj ]
+                                           setUse i $ nub [ pc, sp, ri, rj ]
         buildUseDef' i@(AND rd ri rj) = do setDef i rd
-                                           setUse i [ pc, sp, ri, rj ]
+                                           setUse i $ nub [ pc, sp, ri, rj ]
         buildUseDef' i@(OR  rd ri rj) = do setDef i rd
-                                           setUse i [ pc, sp, ri, rj ]
+                                           setUse i $ nub [ pc, sp, ri, rj ]
         buildUseDef' i@(NOT rd ri   ) = do setDef i rd
-                                           setUse i [ pc, sp, ri ]
-        buildUseDef' i@(JMP    ri   ) =    setUse i [ pc, sp, ri ]
-        buildUseDef' i@(BEZ    ri  o) =    setUse i [ pc, sp, ri ]
+                                           setUse i $ nub [ pc, sp, ri ]
+        buildUseDef' i@(JMP    ri   ) =    setUse i $ nub [ pc, sp, ri ]
+        buildUseDef' i@(BEZ    ri  o) =    setUse i $ nub [ pc, sp, ri ]
         buildUseDef' i@(CEQ rd ri rj) = do setDef i rd
-                                           setUse i [ pc, sp, ri, rj ]
+                                           setUse i $ nub [ pc, sp, ri, rj ]
         buildUseDef' i@(CGT rd ri rj) = do setDef i rd
-                                           setUse i [ pc, sp, ri, rj ]
+                                           setUse i $ nub [ pc, sp, ri, rj ]
         buildUseDef' i@(LDC rd     o) = do setDef i rd
-                                           setUse i [ pc, sp ]
+                                           setUse i $ nub [ pc, sp ]
         buildUseDef' i@(LDM rd ri   ) = do setDef i rd
-                                           setUse i [ pc, sp, ri ]
-        buildUseDef' i@(STM    ri rj) =    setUse i [ pc, sp, ri, rj ]
-        buildUseDef' i                =    setUse i [ pc, sp ]
+                                           setUse i $ nub [ pc, sp, ri ]
+        buildUseDef' i@(STM    ri rj) =    setUse i $ nub [ pc, sp, ri, rj ]
+        buildUseDef' i                =    setUse i $ nub [ pc, sp ]
 
 -- |This function builds the map of labels to their following instructions.
 buildLabelMap :: [ Instruction ] -> State Allocator ()
