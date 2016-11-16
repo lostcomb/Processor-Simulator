@@ -47,7 +47,7 @@ makeFields ''Writeback
 makeLenses ''Simdata
 
 data Type = Scalar
-          | Pipeline
+          | Pipelined
           | Superscalar
           deriving (Show, Eq, Read)
 
@@ -55,15 +55,17 @@ data Options = Options
   { _procType      :: Type
   , _bypassEnabled :: Bool
   , _pipelinedEUs  :: Bool
+  , help           :: Bool
   }
 -- Let Template Haskell make the lenses.
 makeLenses ''Options
 
-newOptions :: Options
-newOptions = Options
+defaultOptions :: Options
+defaultOptions = Options
   { _procType      = Scalar
-  , _bypassEnabled = True
-  , _pipelinedEUs  = True
+  , _bypassEnabled = False
+  , _pipelinedEUs  = False
+  , help           = False
   }
 
 -- |This data type contains all of the processors state.
@@ -87,8 +89,8 @@ data Processor = Processor
 -- Let Template Haskell make the lenses.
 makeLenses ''Processor
 
-newProcessor :: [ Word8 ] -> Int -> Int -> Processor
-newProcessor insts n_fetch n_eus = Processor
+newProcessor :: [ Word8 ] -> Int -> Int -> Options -> Processor
+newProcessor insts n_fetch n_eus opts = Processor
   { _fetchStage      = newFetch n_fetch
   , _decInputLatches = []
   , _decodeStage     = newDecode
@@ -103,7 +105,7 @@ newProcessor insts n_fetch n_eus = Processor
   , _regFile         = newRegFile
   , _simData         = newSimdata
   , _instCycles      = const 1 --TODO
-  , _options         = newOptions
+  , _options         = opts
   }
 
 class HasItem a where
