@@ -9,12 +9,13 @@ import System.Console.GetOpt
 import Control.Monad
 import qualified Data.ByteString.Lazy as BS
 
+import Simulator.Simulator
 import Simulator.Data.Processor (Options(..), defaultOptions, Type(..))
 
 options :: [ OptDescr (Options -> Options) ]
 options
   = [ Option ['t'] ["proctype"]
-      (ReqArg (\t opts -> opts { _procType = parseType t }) "Processor Type")
+      (ReqArg (\t opts -> opts { _procType = parseType t }) "(scalar|pipelined|superscalar)")
       "Sets the type of processor to use, simple scalar, simple pipelined or superscalar."
     , Option ['b'] ["bypass"]
       (NoArg (\opts -> opts { _bypassEnabled = True }))
@@ -34,8 +35,7 @@ simulator_main args = case getOpt Permute options args of
                            then putStrLn $ usageInfo header options
                            else do input <- BS.readFile rp
                                    let prog = BS.unpack input
-                                   putStrLn "Not yet implemented."
-                                   --TODO Drive the simulator.
+                                   evalStateT runProcessor newProcessor prog 1 1 opts --TODO: Update to allow user set params.
   (   _,     _, errs) -> do putStrLn (concat errs ++ usageInfo header options)
                             exitWith (ExitFailure 1)
 

@@ -1,5 +1,6 @@
 module Simulator.Control.Stage.Writeback
-  ( writeback
+  ( scalarWriteback
+  , pipelinedWriteback
   ) where
 
 import Data.Int
@@ -8,13 +9,14 @@ import Control.Monad.State
 
 import Simulator.Data.Processor
 
-writeback :: [ Maybe (Register, Int32) ] -> State Processor ()
-writeback input = do isStalled <- use $ writebackStage.stalled
-                     if isStalled
-                       then return ()
-                       else mapM_ writeback' input
+scalarWriteback :: [ Maybe (Register, Int32) ] -> ProcessorState ()
+scalarWriteback input = mapM_ writeback input
 
-writeback' :: Maybe (Register, Int32) -> State Processor ()
-writeback' Nothing = return ()
-writeback' (Just (r, v)) = do regFile.regVal r .= v
-                              regFile.regFlag r .= Clean
+pipelinedWriteback :: [ Maybe (Register, Int32) ] -> ProcessorState ()
+pipelinedWriteback input = condM (use $ writebackStage.stalled) (return ()) $
+  do mapM_ writeback input
+
+writeback :: Maybe (Register, Int32) -> ProcessorState ()
+writeback Nothing = return ()
+writeback (Just (r, v)) = do regFile.regVal r .= v
+                             regFile.regFlag r .= Clean

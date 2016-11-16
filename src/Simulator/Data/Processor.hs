@@ -22,6 +22,7 @@ import qualified Data.Map as Map
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 import Control.Lens
+import Control.Monad.State
 
 import Simulator.Data.Simdata
 import Simulator.Data.Registers
@@ -84,6 +85,7 @@ data Processor = Processor
   , _regFile         :: RegisterFile
   , _simData         :: Simdata
   , _instCycles      :: Inst Register -> Int
+  , _halted          :: Bool
   , _options         :: Options
   }
 -- Let Template Haskell make the lenses.
@@ -105,8 +107,12 @@ newProcessor insts n_fetch n_eus opts = Processor
   , _regFile         = newRegFile
   , _simData         = newSimdata
   , _instCycles      = const 1 --TODO
+  , _halted          = False
   , _options         = opts
   }
+
+-- Define the type of functions that operate on the processor.
+type ProcessorState a = StateT Processor IO a
 
 class HasItem a where
   item :: Word32 -> Lens' a Word8
@@ -118,3 +124,14 @@ instance HasItem InstMem where
 instance HasItem DataMem where
   item i = lens (\mem   -> Map.findWithDefault 0 i mem)
                 (\mem w -> Map.insert i w mem)
+
+condM :: (Monad m) => m Bool -> m a -> m a -> m a
+condM mc m1 m2 = mc >>= (\c -> if c then m1 else m2)
+
+whileM :: (Monad m) => m Bool -> m a -> m [a]
+whileM mc mb = condM mc (do b <- mb
+                            bs <- whileM mc mb
+                            return (b:bs)) (return [])
+
+whileM_ :: (Monad m) => m Bool -> m a -> m ()
+whileM_ mc mb = whileM mc mb >> return ()

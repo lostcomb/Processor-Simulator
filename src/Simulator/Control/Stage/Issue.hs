@@ -1,5 +1,6 @@
 module Simulator.Control.Stage.Issue
-  ( issue
+  ( scalarIssue
+  , pipelinedIssue
   ) where
 
 import Data.Int
@@ -8,21 +9,20 @@ import Control.Monad.State
 
 import Simulator.Data.Processor
 
--- TODO: Finish this module.
+scalarIssue :: [ Maybe InstructionReg ] -> ProcessorState [ Maybe InstructionVal ]
+scalarIssue input = mapM issue input
 
-issue :: [ Maybe InstructionReg ] -> State Processor [ Maybe InstructionVal ]
-issue input = do isStalled <- use $ issueStage.stalled
-                 if isStalled
-                   then use exeInputLatches >>= return
-                   else mapM issue' input
+pipelinedIssue :: [ Maybe InstructionReg ] -> ProcessorState [ Maybe InstructionVal ]
+pipelinedIssue input = condM (use $ issueStage.stalled) (use exeInputLatches) $
+  do mapM issue input
 
-issue' :: Maybe InstructionReg -> State Processor (Maybe InstructionVal)
-issue' Nothing = return Nothing
-issue' (Just (Instruction c i)) = do inst <- fillInsts i
-                                     return $ Just $ Instruction c inst
+issue :: Maybe InstructionReg -> ProcessorState (Maybe InstructionVal)
+issue Nothing = return Nothing
+issue (Just (Instruction c i)) = do inst <- fillInsts i
+                                    return $ Just $ Instruction c inst
 -- Need to stall if bypassing is not enabled and there is a dependency.
 
-fillInsts :: Inst Register -> State Processor (Inst Int32)
+fillInsts :: Inst Register -> ProcessorState (Inst Int32)
 fillInsts (Nop         ) =    return $ Nop
 fillInsts (Add rd ri rj) = do regFile.regFlag rd .= Dirty
                               vi <- getRegVal ri
@@ -52,7 +52,7 @@ fillInsts (Not rd ri   ) = do regFile.regFlag rd .= Dirty
                               vi <- getRegVal ri
                               return $ Not rd vi
 
-getRegVal :: Register -> State Processor Int32
+getRegVal :: Register -> ProcessorState Int32
 getRegVal r = do isBypassEnabled <- use $ options.bypassEnabled
                  val <- use $ regFile.regVal r
                  if isBypassEnabled

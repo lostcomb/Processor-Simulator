@@ -1,64 +1,89 @@
 module Simulator.Control.Stage.Execute
-  ( execute
+  ( scalarExecute
+  , pipelinedExecute
   ) where
 
 import Data.Int
 import Data.Bits
+import Data.Maybe
 import Control.Lens
+import Control.Monad
 import Control.Monad.State
 
 import Simulator.Data.Processor
 
-execute :: [ Maybe InstructionVal ] -> State Processor [ Maybe (Register, Int32) ]
-execute input = do isStalled <- executeStage.stalled
-                   if isStalled
-                     then use wrbInputLatches >>= return
-                     else do output <- mapM execute' input
-                             executeStage.bypassValues .= output
-                             return output
+scalarExecute :: [ Maybe InstructionVal ] -> ProcessorState [ Maybe (Register, Int32) ]
+scalarExecute input = mapM scalarExecute' input
+  where scalarExecute' Nothing = return Nothing
+        scalarExecute' (Just (Instruction c i)) = do simData.insts += 1
+                                                     simData.cycles += (c - 1)
+                                                     execute i
 
-execute' :: Maybe InstructionVal -> State Processor (Maybe (Register, Int32))
-execute' Nothing = return Nothing
-execute' (Just (Instruction 1 i)) = execute'' i
-execute' (Just i) = undefined -- TODO: Sort out how to do this.
+pipelinedExecute :: [ Maybe InstructionVal ] -> ProcessorState [ Maybe (Register, Int32) ]
+pipelinedExecute input = condM (use $ executeStage.stalled) (use wrbInputLatches) $
+  do output <- mapM pipelinedExecute' input
+     when (filter ((==) Nothing) output /= []) $
+       executeStage.bypassValues .= map fromJust output
+     return output
+  where pipelinedExecute' Nothing = return Nothing
+        pipelinedExecute' (Just (Instruction 1 i)) = do simData.insts += 1
+                                                        execute i
+        pipelinedExecute' (Just i) = do let i' = fmap pred i
+                                        undefined -- TODO: Sort out how to do this.
 
-execute'' :: Inst Int32 -> State Processor (Maybe (Register, Int32))
-execute'' (Nop         ) = return Nothing
+execute :: Inst Int32 -> ProcessorState (Maybe (Register, Int32))
+execute (Nop         ) = return Nothing
 
-execute'' (Add rd ri rj) = return $ Just (rd, ri + rj)
+execute (Add rd ri rj) = return $ Just (rd, ri + rj)
 
-execute'' (Sub rd ri rj) = return $ Just (rd, ri - rj)
+execute (Sub rd ri rj) = return $ Just (rd, ri - rj)
 
-execute'' (Mul rd ri rj) = return $ Just (rd, ri * rj)
+execute (Mul rd ri rj) = return $ Just (rd, ri * rj)
 
-execute'' (Div rd ri rj) = return $ Just (rd, ri `div` rj)
+execute (Div rd ri rj) = return $ Just (rd, ri `div` rj)
 
-execute'' (And rd ri rj) = return $ Just (rd, ri .&. rj)
+execute (And rd ri rj) = return $ Just (rd, ri .&. rj)
 
-execute'' (Or  rd ri rj) = return $ Just (rd, ri .|. rj)
+execute (Or  rd ri rj) = return $ Just (rd, ri .|. rj)
 
-execute'' (Not rd ri   ) = return $ Just (rd, complement ri)
+execute (Not rd ri   ) = return $ Just (rd, complement ri)
 
-execute'' (Jmp    ri   ) = return $ Just (pc, ri)
+execute (Jmp    ri   ) = return $ Just (pc, ri)
 
-execute'' (Bez    ri  c) = if ri == 0
-                             then return $ Just (pc, fromIntegral c)
-                             else return Nothing
+execute (Bez    ri  c) = if ri == 0
+                           then return $ Just (pc, fromIntegral c)
+                           else return Nothing
 
-execute'' (Ceq rd ri rj) = return $ Just (rd, if ri == rj
-                                                then 1
-                                                else 0)
+execute (Ceq rd ri rj) = return $ Just (rd, if ri == rj
+                                              then 1
+                                              else 0)
 
-execute'' (Cgt rd ri rj) = return $ Just (rd, if ri > rj
-                                                then 1
-                                                else 0)
+execute (Cgt rd ri rj) = return $ Just (rd, if ri > rj
+                                              then 1
+                                              else 0)
 
-execute'' (Ldc rd     c) = return $ Just (rd, fromIntegral c)
+execute (Ldc rd     c) = return $ Just (rd, fromIntegral c)
 
-execute'' (Ldm rd ri   ) = do mem <- getDataMemItem (fromIntegral ri) --TODO: this needs to get all four bytes of the memory item.
-                              return $ Just (rd, fromIntegral mem)
+execute (Ldm rd ri   ) = do mem1 <- use $ dataMem.item (fromIntegral ri    )
+                            mem2 <- use $ dataMem.item (fromIntegral ri + 1)
+                            mem3 <- use $ dataMem.item (fromIntegral ri + 2)
+                            mem4 <- use $ dataMem.item (fromIntegral ri + 3)
+                            let b1   = fromIntegral mem1 `shiftL` 24
+                                b2   = fromIntegral mem2 `shiftL` 16
+                                b3   = fromIntegral mem3 `shiftL` 8
+                                b4   = fromIntegral mem4
+                                word = b1 .|. b2 .|. b3 .|. b4
+                            return $ Just (rd, word)
 
-execute'' (Stm    ri rj) = do setDataMemItem (fromIntegral ri) (fromIntegral rj) --TODO: this needs to set all four bytes of the memory item.
-                              return Nothing
+execute (Stm    ri rj) = do let b1 = fromIntegral (rj `shiftR` 24)
+                                b2 = fromIntegral (rj `shiftR` 16)
+                                b3 = fromIntegral (rj `shiftR` 8 )
+                                b4 = fromIntegral (rj            )
+                            dataMem.item (fromIntegral ri    ) .= b1
+                            dataMem.item (fromIntegral ri + 1) .= b2
+                            dataMem.item (fromIntegral ri + 2) .= b3
+                            dataMem.item (fromIntegral ri + 3) .= b4
+                            return Nothing
 
-execute'' (Halt        ) = undefined --TODO: Halt execution.
+execute (Halt        ) = do halted .= True
+                            return Nothing
