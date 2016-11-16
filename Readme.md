@@ -2,6 +2,13 @@
 
 ## TODO: Compile instructions. ##
 
+## TODO: ##
+
+* Finish runProcessor by adding code to print out state and control execution (i.e. simple command prompt).
+* Finalise how the pc works.
+* Implement proper stalling logic.
+* Implement sub pipeline in the EU.
+
 # ISA Reference: #
 
 | Assembly Representation | Binary Representation                     | Description                                                                   |
