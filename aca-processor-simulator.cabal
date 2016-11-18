@@ -26,6 +26,7 @@ executable aca-processor-simulator
                        Compiler.Parser,
                        Compiler.SyntaxTree,
                        Simulator,
+                       Simulator.Simulator,
                        Simulator.Data.Instruction,
                        Simulator.Data.Processor,
                        Simulator.Data.Registers,
@@ -34,7 +35,12 @@ executable aca-processor-simulator
                        Simulator.Data.Stage.Execute,
                        Simulator.Data.Stage.Fetch,
                        Simulator.Data.Stage.Issue,
-                       Simulator.Data.Stage.Writeback
+                       Simulator.Data.Stage.Writeback,
+                       Simulator.Control.Stage.Decode,
+                       Simulator.Control.Stage.Execute,
+                       Simulator.Control.Stage.Fetch,
+                       Simulator.Control.Stage.Issue,
+                       Simulator.Control.Stage.Writeback
   default-language:    Haskell2010
   build-depends:       base >= 4.7 && < 5,
                        lens,

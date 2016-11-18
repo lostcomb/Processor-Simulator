@@ -7,13 +7,14 @@ import System.Exit
 import System.FilePath
 import System.Console.GetOpt
 import Control.Monad
+import Control.Monad.State
 import qualified Data.ByteString.Lazy as BS
 
 import Simulator.Simulator
-import Simulator.Data.Processor (Options(..), defaultOptions, Type(..))
+import Simulator.Data.Processor
 
-options :: [ OptDescr (Options -> Options) ]
-options
+optionList :: [ OptDescr (Options -> Options) ]
+optionList
   = [ Option ['t'] ["proctype"]
       (ReqArg (\t opts -> opts { _procType = parseType t }) "(scalar|pipelined|superscalar)")
       "Sets the type of processor to use, simple scalar, simple pipelined or superscalar."
@@ -29,14 +30,14 @@ options
     ]
 
 simulator_main :: [ String ] -> IO ()
-simulator_main args = case getOpt Permute options args of
+simulator_main args = case getOpt Permute optionList args of
   (o, rp:fs,   []) -> do let opts = foldl (flip id) defaultOptions o
                          if help opts
-                           then putStrLn $ usageInfo header options
+                           then putStrLn $ usageInfo header optionList
                            else do input <- BS.readFile rp
                                    let prog = BS.unpack input
-                                   evalStateT runProcessor newProcessor prog 1 1 opts --TODO: Update to allow user set params.
-  (   _,     _, errs) -> do putStrLn (concat errs ++ usageInfo header options)
+                                   evalStateT runProcessor $ newProcessor prog 1 1 opts --TODO: Update to allow user set params.
+  (   _,     _, errs) -> do putStrLn (concat errs ++ usageInfo header optionList)
                             exitWith (ExitFailure 1)
 
 parseType :: String -> Type

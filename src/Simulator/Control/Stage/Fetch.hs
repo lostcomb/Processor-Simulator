@@ -24,5 +24,5 @@ fetch = do pc_val <- use $ fetchStage.programCounter
            i2 <- use $ instMem.item (fromIntegral (pc_val + 1))
            i3 <- use $ instMem.item (fromIntegral (pc_val + 2))
            i4 <- use $ instMem.item (fromIntegral (pc_val + 3))
-           fetchStage.programCounter += 4
+           fetchStage.programCounter += instLength
            return $ Just (i1, i2, i3, i4)

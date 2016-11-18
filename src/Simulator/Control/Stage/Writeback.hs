@@ -10,7 +10,8 @@ import Control.Monad.State
 import Simulator.Data.Processor
 
 scalarWriteback :: [ Maybe (Register, Int32) ] -> ProcessorState ()
-scalarWriteback input = mapM_ writeback input
+scalarWriteback input = do regFile.regVal pc += instLength
+                           mapM_ writeback input
 
 pipelinedWriteback :: [ Maybe (Register, Int32) ] -> ProcessorState ()
 pipelinedWriteback input = condM (use $ writebackStage.stalled) (return ()) $

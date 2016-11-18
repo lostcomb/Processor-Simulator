@@ -4,10 +4,15 @@ module Simulator.Data.Instruction
   , Instruction(..)
   , InstructionVal
   , InstructionReg
+  , instLength
   ) where
 
 import Data.Int
 import Simulator.Data.Registers
+
+-- |This defines the length of an instruction in bytes.
+instLength :: (Integral a) => a
+instLength = 4
 
 -- |This defines the type for Instructions whose registers have been swapped
 --  out for their values.
