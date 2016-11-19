@@ -67,7 +67,7 @@ getInsts = do s <- get
 -- |This function returns the current stack size.
 getStackSize :: State Generator Int
 getStackSize = do s <- get
-                  return $ length $ stack s
+                  return $ 4 * (length $ stack s)
 
 -- |This function resets the stack, i.e. it makes it the empty stack.
 resetStack :: State Generator ()
@@ -98,7 +98,7 @@ getOffset v = do s <- get
                            (Var i  ) -> i
                            (Arr i _) -> i
                      index = fromJust . findIndex (eqVar i) $ (stack s)
-                 return $ identToInt index (stack s !! index)
+                 return $ identToInt (index * 4) (stack s !! index)
 
 -- |This function returns true if the specified identifier is equal to the
 --  identifier in the either.

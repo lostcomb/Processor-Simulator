@@ -43,7 +43,7 @@ genFunction (Function _ i args stmts) = do declareVariable (Var "_return")
                                            genStatements stmts
                                            setRegister gprb
                                            r <- getRegister
-                                           addInst $ LDC r (Left 1)
+                                           addInst $ LDC r (Left 4)
                                            addInst $ ADD r r sp
                                            addInst $ LDM r r
                                            addInst $ JMP r
@@ -139,7 +139,7 @@ genFuncCall (FuncCall i exprs)
        r3 <- getRegister
        addInst $ LDC r1 (Left stack_size)
        addInst $ ADD sp sp r1
-       addInst $ LDC r2 (Left 1)
+       addInst $ LDC r2 (Left 4)
        addInst $ ADD r3 r2 sp
        addInst $ LDC r1 (Right retL)
        addInst $ STM r3 r1

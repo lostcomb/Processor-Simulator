@@ -11,6 +11,7 @@ import Control.Monad
 import Control.Monad.State
 
 import Simulator.Data.Processor
+import Simulator.Control.Stall
 
 scalarExecute :: [ Maybe InstructionVal ] -> ProcessorState [ Maybe (Register, Int32) ]
 scalarExecute input = mapM scalarExecute' input
@@ -22,15 +23,18 @@ scalarExecute input = mapM scalarExecute' input
 pipelinedExecute :: [ Maybe InstructionVal ] -> ProcessorState [ Maybe (Register, Int32) ]
 pipelinedExecute input = condM (use $ executeStage.stalled)
   (simData.executeStalledCount += 1 >> use wrbInputLatches) $
-  do output <- mapM pipelinedExecute' input
-     when (filter ((==) Nothing) output /= []) $
-       executeStage.bypassValues .= map fromJust output
+  do exeInputLatches .= []
+     output <- mapM pipelinedExecute' input
+     executeStage.bypassValues .= (map fromJust . filter ((/=) Nothing)) output
      return output
   where pipelinedExecute' Nothing = return Nothing
         pipelinedExecute' (Just (Instruction 1 i)) = do simData.insts += 1
+                                                        continueIssue
                                                         execute i
         pipelinedExecute' (Just i) = do let i' = fmap pred i
-                                        undefined -- TODO: Sort out how to do this.
+                                        stallIssue
+                                        exeInputLatches %= (++) [ Just i' ]
+                                        return Nothing
 
 execute :: Inst Int32 -> ProcessorState (Maybe (Register, Int32))
 execute (Nop         ) = return Nothing

@@ -10,6 +10,7 @@ type Latches = [ Maybe (Register, Int32) ]
 
 data Execute = Execute
   { _executeStalled         :: Bool
+  , _executeInvalidated     :: Bool
   , _executeBypassValues    :: [ (Register, Int32) ]
   , _executePipelineLatches :: [ Latches ]
   }
@@ -18,6 +19,7 @@ data Execute = Execute
 newExecute :: Execute
 newExecute = Execute
   { _executeStalled         = False
+  , _executeInvalidated     = False
   , _executeBypassValues    = []
   , _executePipelineLatches = []
   }

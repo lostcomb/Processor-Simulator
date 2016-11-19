@@ -4,11 +4,13 @@ module Simulator.Data.Stage.Writeback
   ) where
 
 data Writeback = Writeback
-  { _writebackStalled :: Bool
+  { _writebackStalled     :: Bool
+  , _writebackInvalidated :: Bool
   }
   deriving (Show, Eq, Read)
 
 newWriteback :: Writeback
 newWriteback = Writeback
-  { _writebackStalled = False
+  { _writebackStalled     = False
+  , _writebackInvalidated = False
   }

@@ -8,6 +8,7 @@ import Control.Lens
 import Control.Monad.State
 
 import Simulator.Data.Processor
+import Simulator.Control.Stall
 
 scalarIssue :: [ Maybe InstructionReg ] -> ProcessorState [ Maybe InstructionVal ]
 scalarIssue input = mapM issue input
@@ -19,9 +20,31 @@ pipelinedIssue input = condM (use $ issueStage.stalled)
 
 issue :: Maybe InstructionReg -> ProcessorState (Maybe InstructionVal)
 issue Nothing = return Nothing
-issue (Just (Instruction c i)) = do inst <- fillInsts i
-                                    return $ Just $ Instruction c inst
--- Need to stall if bypassing is not enabled and there is a dependency.
+issue (Just (Instruction c i)) = condM (checkForDependency i)
+  (stallIssue >> return Nothing) $
+  do inst <- fillInsts i
+     return $ Just $ Instruction c inst
+
+checkForDependency :: Inst Register -> ProcessorState Bool
+checkForDependency i = case i of
+  (Nop         ) -> return False
+  (Add rd ri rj) -> (||) <$> check ri <*> check rj
+  (Sub rd ri rj) -> (||) <$> check ri <*> check rj
+  (Mul rd ri rj) -> (||) <$> check ri <*> check rj
+  (Div rd ri rj) -> (||) <$> check ri <*> check rj
+  (And rd ri rj) -> (||) <$> check ri <*> check rj
+  (Or  rd ri rj) -> (||) <$> check ri <*> check rj
+  (Not rd ri   ) -> check ri
+  (Jmp    ri   ) -> check ri
+  (Bez    ri  o) -> check ri
+  (Ceq rd ri rj) -> (||) <$> check ri <*> check rj
+  (Cgt rd ri rj) -> (||) <$> check ri <*> check rj
+  (Ldc rd     c) -> return False
+  (Ldm rd ri   ) -> check ri
+  (Stm    ri rj) -> (||) <$> check ri <*> check rj
+  (Halt        ) -> return False
+  where check :: Register -> ProcessorState Bool
+        check r = use (regFile.regFlag r) >>= (\f -> return $ f == Dirty)
 
 fillInsts :: Inst Register -> ProcessorState (Inst Int32)
 fillInsts (Nop         ) =    return $ Nop

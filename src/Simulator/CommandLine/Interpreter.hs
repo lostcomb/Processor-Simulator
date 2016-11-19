@@ -17,7 +17,12 @@ interpret :: (Type -> ProcessorState ()) -> [ Command ] -> ProcessorState ()
 interpret step cmds = mapM_ (interpret' step) cmds
 
 interpret' :: (Type -> ProcessorState ()) -> Command -> ProcessorState ()
-interpret' step (Step    i) = replicateM_ i $ use (options.procType) >>= step
+interpret' step (Step    i) = replicateM_ i $ condM (liftM not $ use halted)
+                                  (use (options.procType) >>= step >>
+                                     condM (use halted)
+                                       (liftIO $ putStrLn "Execution Halted.")
+                                       (return ()))
+                                  (return ())
 interpret' step (Continue ) = do whileM_ (liftM not $ use halted)
                                    $ use (options.procType) >>= step
                                  liftIO $ putStrLn "Execution Halted."
@@ -82,7 +87,7 @@ printInstCycles inst
 
 printRegisters :: ProcessorState ()
 printRegisters = do let groups = chunksOf 4 [(minBound::Register)..]
-                        section = replicate 4 . replicate 17 $ '-'
+                        section = replicate 4 . replicate 18 $ '-'
                         line = "+" ++ intercalate "+" section ++ "+"
                     liftIO $ putStrLn line
                     mapM_ (\rs -> do mapM_ (\r -> do liftIO $ putStr "|"
@@ -91,10 +96,14 @@ printRegisters = do let groups = chunksOf 4 [(minBound::Register)..]
                     liftIO $ putStrLn line
   where genReg :: Register -> ProcessorState ()
         genReg r = do val <- use $ regFile.regVal r
+                      flag <- use $ regFile.regFlag r
                       let r_s = show r ++ ": "
-                          v_s = show val
-                          padding = replicate (15 - length r_s - length v_s) ' '
+                          v_s = show val ++ " " ++ flagToString flag
+                          padding = replicate (16 - length r_s - length v_s) ' '
                       liftIO $ putStr $ " " ++ r_s ++ padding ++ v_s ++ " "
+        flagToString :: Flag -> String
+        flagToString Clean = "c"
+        flagToString Dirty = "d"
 
 printMemory :: ProcessorState ()
 printMemory = do mem <- use $ dataMem
