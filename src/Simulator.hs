@@ -36,7 +36,7 @@ simulator_main args = case getOpt Permute optionList args of
                            then putStrLn $ usageInfo header optionList
                            else do input <- BS.readFile rp
                                    let prog = BS.unpack input
-                                   evalStateT runProcessor $ newProcessor prog 1 1 opts --TODO: Update to allow user set params.
+                                   evalStateT (evalStateT runProcessor []) $ newProcessor prog 1 1 opts--TODO: Update to allow user set params.
   (   _,     _, errs) -> do putStrLn (concat errs ++ usageInfo header optionList)
                             exitWith (ExitFailure 1)
 

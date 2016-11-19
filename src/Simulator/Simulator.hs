@@ -6,12 +6,13 @@ import Data.Map (toList)
 import Data.Bits
 import Data.List
 import Data.Word
+import System.IO
+import System.Exit
 import Control.Lens
 import Control.Monad
 import Control.Monad.State
-import System.IO
-import System.Exit
 
+import Simulator.CmdParser
 import Simulator.Data.Processor
 import Simulator.Control.Stage.Fetch
 import Simulator.Control.Stage.Decode
@@ -19,13 +20,18 @@ import Simulator.Control.Stage.Issue
 import Simulator.Control.Stage.Execute
 import Simulator.Control.Stage.Writeback
 
-runProcessor :: ProcessorState ()
-runProcessor = do liftIO $ putStrLn "Processor Simulator (c) Julian Loscombe 2016"
-                  forever $ do liftIO $ putStr "\n*>"
+runProcessor :: StateT [ Command ] (StateT Processor IO) a
+runProcessor = do liftIO $ putStrLn "Processor Simulator (c) Julian Loscombe 2016\n"
+                  forever $ do liftIO $ putStr "*>"
                                liftIO $ hFlush stdout
-                               command <- liftIO $ getLine
-                               liftIO $ putStrLn ""
-                               performCommand command
+                               command_str <- liftIO $ getLine
+                               case parse command_str of
+                                 (Left   e) -> do put []
+                                                  liftIO $ putStrLn $ show e
+                                 (Right []) -> do cs <- get
+                                                  lift $ performCommands cs
+                                 (Right cs) -> do put cs
+                                                  lift $ performCommands cs
 
 step :: Type -> ProcessorState ()
 step Scalar      = scalarProcessor
@@ -57,26 +63,26 @@ pipelinedProcessor
 superscalarProcessor :: ProcessorState ()
 superscalarProcessor = undefined
 
-performCommand :: String -> ProcessorState ()
-performCommand ""           = return ()
-performCommand "step"       = use (options.procType) >>= step
-performCommand "registers"  = printRegisters
-performCommand "memory"     = printMemory
-performCommand "continue"   = do whileM_ (liftM not $ use halted)
+performCommands :: [ Command ] -> ProcessorState ()
+performCommands cmds = mapM_ performCommand cmds
+
+performCommand :: Command -> ProcessorState ()
+performCommand (Step i)     = replicateM_ i $ use (options.procType) >>= step
+performCommand (Continue)   = do whileM_ (liftM not $ use halted)
                                    $ use (options.procType) >>= step
                                  liftIO $ putStrLn "Execution Halted."
-performCommand "decodei"    = do dec <- use $ decInputLatches
+performCommand (Registers)  = printRegisters
+performCommand (Memory)     = printMemory
+performCommand (Stats)      = printStatistics
+performCommand (DecodeI)    = do dec <- use $ decInputLatches
                                  liftIO $ putStrLn $ show dec
-performCommand "issuei"     = do iss <- use $ issInputLatches
+performCommand (IssueI)     = do iss <- use $ issInputLatches
                                  liftIO $ putStrLn $ show iss
-performCommand "executei"   = do exe <- use $ exeInputLatches
+performCommand (ExecuteI)   = do exe <- use $ exeInputLatches
                                  liftIO $ putStrLn $ show exe
-performCommand "writebacki" = do wrb <- use $ wrbInputLatches
+performCommand (WritebackI) = do wrb <- use $ wrbInputLatches
                                  liftIO $ putStrLn $ show wrb
-performCommand "quit"       = liftIO exitSuccess
-performCommand "stats"      = printStatistics
-performCommand c            = do liftIO $ putStrLn $ "Invalid command: " ++ show c
-                                 return ()
+performCommand (Quit)       = liftIO exitSuccess
 
 printRegisters :: ProcessorState ()
 printRegisters = do let groups = chunksOf 4 [(minBound::Register)..]
