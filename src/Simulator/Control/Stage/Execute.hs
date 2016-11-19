@@ -20,7 +20,8 @@ scalarExecute input = mapM scalarExecute' input
                                                      execute i
 
 pipelinedExecute :: [ Maybe InstructionVal ] -> ProcessorState [ Maybe (Register, Int32) ]
-pipelinedExecute input = condM (use $ executeStage.stalled) (use wrbInputLatches) $
+pipelinedExecute input = condM (use $ executeStage.stalled)
+  (simData.executeStalledCount += 1 >> use wrbInputLatches) $
   do output <- mapM pipelinedExecute' input
      when (filter ((==) Nothing) output /= []) $
        executeStage.bypassValues .= map fromJust output

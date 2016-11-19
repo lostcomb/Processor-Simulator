@@ -20,6 +20,8 @@ data Command = Step Int
              | IssueI
              | ExecuteI
              | WritebackI
+             | Set String Int
+             | Get String
              | Quit
              deriving (Show, Eq, Read)
 
@@ -29,7 +31,8 @@ languageDef = emptyDef
                     , "registers" , "memory"
                     , "stats"     , "decodei"
                     , "issuei"    , "executei"
-                    , "writebacki", "quit"
+                    , "writebacki", "set"
+                    , "get"       , "quit"
                     ]
   }
 
@@ -43,7 +46,7 @@ commandsParser :: Parser [ Command ]
 commandsParser = commandParser `sepBy` semi lexer
 
 -- |The syntax for a command is:
---  <cmd> ::= 'step' [0-9]+
+--  <cmd> ::= 'step' <integer>
 --        |   'continue'
 --        |   'registers'
 --        |   'memory'
@@ -52,6 +55,8 @@ commandsParser = commandParser `sepBy` semi lexer
 --        |   'issuei'
 --        |   'executei'
 --        |   'writebacki'
+--        |   'set' <instruction_id> <integer>
+--        |   'get' <instruction_id>
 --        |   'quit'
 commandParser :: Parser Command
 commandParser =   (Step       <$  reserved lexer "step"
@@ -64,4 +69,9 @@ commandParser =   (Step       <$  reserved lexer "step"
               <|> (IssueI     <$  reserved lexer "issuei"                  )
               <|> (ExecuteI   <$  reserved lexer "executei"                )
               <|> (WritebackI <$  reserved lexer "writebacki"              )
+              <|> (Set        <$  reserved lexer "set"
+                              <*> identifier lexer
+                              <*> (fromIntegral <$> integer lexer)         )
+              <|> (Get        <$  reserved lexer "get"
+                              <*> identifier lexer                         )
               <|> (Quit       <$  reserved lexer "quit"                    )

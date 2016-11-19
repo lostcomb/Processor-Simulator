@@ -13,7 +13,8 @@ scalarIssue :: [ Maybe InstructionReg ] -> ProcessorState [ Maybe InstructionVal
 scalarIssue input = mapM issue input
 
 pipelinedIssue :: [ Maybe InstructionReg ] -> ProcessorState [ Maybe InstructionVal ]
-pipelinedIssue input = condM (use $ issueStage.stalled) (use exeInputLatches) $
+pipelinedIssue input = condM (use $ issueStage.stalled)
+  (simData.issueStalledCount += 1 >> use exeInputLatches) $
   do mapM issue input
 
 issue :: Maybe InstructionReg -> ProcessorState (Maybe InstructionVal)

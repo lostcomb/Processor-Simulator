@@ -15,14 +15,15 @@ scalarDecode :: [ Maybe (Word8, Word8, Word8, Word8) ] -> ProcessorState [ Maybe
 scalarDecode input = mapM decode input
 
 pipelinedDecode :: [ Maybe (Word8, Word8, Word8, Word8) ] -> ProcessorState [ Maybe InstructionReg ]
-pipelinedDecode input = condM (use $ decodeStage.stalled) (use issInputLatches) $
+pipelinedDecode input = condM (use $ decodeStage.stalled)
+  (simData.decodeStalledCount += 1 >> use issInputLatches) $
   do mapM decode input
 
 decode :: Maybe (Word8, Word8, Word8, Word8) -> ProcessorState (Maybe InstructionReg)
-decode Nothing = return Nothing
-decode (Just i) = do let inst = decodeInst i
-                     cycles <- use $ instCycles
-                     return $ Just $ Instruction (cycles inst) inst
+decode (Nothing) = return Nothing
+decode (Just  i) = do let inst = decodeInst i
+                      cycles <- use $ instCycles
+                      return $ Just $ Instruction (cycles inst) inst
 
 decodeInst :: (Word8, Word8, Word8, Word8) -> Inst Register
 decodeInst (b1, b2, b3, b4) = case op_code of

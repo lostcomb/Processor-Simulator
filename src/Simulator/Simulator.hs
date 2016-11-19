@@ -67,22 +67,126 @@ performCommands :: [ Command ] -> ProcessorState ()
 performCommands cmds = mapM_ performCommand cmds
 
 performCommand :: Command -> ProcessorState ()
-performCommand (Step i)     = replicateM_ i $ use (options.procType) >>= step
-performCommand (Continue)   = do whileM_ (liftM not $ use halted)
-                                   $ use (options.procType) >>= step
-                                 liftIO $ putStrLn "Execution Halted."
-performCommand (Registers)  = printRegisters
-performCommand (Memory)     = printMemory
-performCommand (Stats)      = printStatistics
-performCommand (DecodeI)    = do dec <- use $ decInputLatches
+performCommand (Step    i) = replicateM_ i $ use (options.procType) >>= step
+performCommand (Continue ) = do whileM_ (liftM not $ use halted)
+                                  $ use (options.procType) >>= step
+                                liftIO $ putStrLn "Execution Halted."
+performCommand (Registers ) = printRegisters
+performCommand (Memory    ) = printMemory
+performCommand (Stats     ) = printStatistics
+performCommand (DecodeI   ) = do dec <- use $ decInputLatches
                                  liftIO $ putStrLn $ show dec
-performCommand (IssueI)     = do iss <- use $ issInputLatches
+performCommand (IssueI    ) = do iss <- use $ issInputLatches
                                  liftIO $ putStrLn $ show iss
-performCommand (ExecuteI)   = do exe <- use $ exeInputLatches
+performCommand (ExecuteI  ) = do exe <- use $ exeInputLatches
                                  liftIO $ putStrLn $ show exe
 performCommand (WritebackI) = do wrb <- use $ wrbInputLatches
                                  liftIO $ putStrLn $ show wrb
-performCommand (Quit)       = liftIO exitSuccess
+performCommand (Set inst c) = setInstCycles inst c
+performCommand (Get inst  ) = printInstCycles inst
+performCommand (Quit      ) = liftIO exitSuccess
+
+setInstCycles :: String -> Int -> ProcessorState ()
+setInstCycles "nop" c = do func <- use $ instCycles
+                           instCycles .= (\i -> case i of
+                                                  (Nop) -> c
+                                                  _     -> func i)
+setInstCycles "add" c = do func <- use $ instCycles
+                           instCycles .= (\i -> case i of
+                                                  (Add _ _ _) -> c
+                                                  _           -> func i)
+setInstCycles "sub" c = do func <- use $ instCycles
+                           instCycles .= (\i -> case i of
+                                                  (Sub _ _ _) -> c
+                                                  _           -> func i)
+setInstCycles "mul" c = do func <- use $ instCycles
+                           instCycles .= (\i -> case i of
+                                                  (Mul _ _ _) -> c
+                                                  _           -> func i)
+setInstCycles "div" c = do func <- use $ instCycles
+                           instCycles .= (\i -> case i of
+                                                  (Div _ _ _) -> c
+                                                  _           -> func i)
+setInstCycles "and" c = do func <- use $ instCycles
+                           instCycles .= (\i -> case i of
+                                                  (And _ _ _) -> c
+                                                  _           -> func i)
+setInstCycles "or"  c = do func <- use $ instCycles
+                           instCycles .= (\i -> case i of
+                                                  (Or  _ _ _) -> c
+                                                  _           -> func i)
+setInstCycles "not" c = do func <- use $ instCycles
+                           instCycles .= (\i -> case i of
+                                                  (Not _ _) -> c
+                                                  _         -> func i)
+setInstCycles "jmp" c = do func <- use $ instCycles
+                           instCycles .= (\i -> case i of
+                                                  (Jmp _) -> c
+                                                  _       -> func i)
+setInstCycles "bez" c = do func <- use $ instCycles
+                           instCycles .= (\i -> case i of
+                                                  (Bez _ _) -> c
+                                                  _         -> func i)
+setInstCycles "ceq" c = do func <- use $ instCycles
+                           instCycles .= (\i -> case i of
+                                                  (Ceq _ _ _) -> c
+                                                  _           -> func i)
+setInstCycles "cgt" c = do func <- use $ instCycles
+                           instCycles .= (\i -> case i of
+                                                  (Cgt _ _ _) -> c
+                                                  _           -> func i)
+setInstCycles "ldc" c = do func <- use $ instCycles
+                           instCycles .= (\i -> case i of
+                                                  (Ldc _ _) -> c
+                                                  _         -> func i)
+setInstCycles "ldm" c = do func <- use $ instCycles
+                           instCycles .= (\i -> case i of
+                                                  (Ldm _ _) -> c
+                                                  _         -> func i)
+setInstCycles "stm" c = do func <- use $ instCycles
+                           instCycles .= (\i -> case i of
+                                                  (Stm _ _) -> c
+                                                  _         -> func i)
+setInstCycles "halt" c = do func <- use $ instCycles
+                            instCycles .= (\i -> case i of
+                                                   (Halt) -> c
+                                                   _      -> func i)
+setInstCycles i _ = liftIO $ putStrLn $ "Invalid instruction: " ++ i
+
+printInstCycles :: String -> ProcessorState ()
+printInstCycles "nop"  = do cs <- use $ instCycles
+                            liftIO $ putStrLn $ show $ cs $ Nop
+printInstCycles "add"  = do cs <- use $ instCycles
+                            liftIO $ putStrLn $ show $ cs $ Add R0 R0 R0
+printInstCycles "sub"  = do cs <- use $ instCycles
+                            liftIO $ putStrLn $ show $ cs $ Sub R0 R0 R0
+printInstCycles "mul"  = do cs <- use $ instCycles
+                            liftIO $ putStrLn $ show $ cs $ Mul R0 R0 R0
+printInstCycles "div"  = do cs <- use $ instCycles
+                            liftIO $ putStrLn $ show $ cs $ Div R0 R0 R0
+printInstCycles "and"  = do cs <- use $ instCycles
+                            liftIO $ putStrLn $ show $ cs $ And R0 R0 R0
+printInstCycles "or"   = do cs <- use $ instCycles
+                            liftIO $ putStrLn $ show $ cs $ Or  R0 R0 R0
+printInstCycles "not"  = do cs <- use $ instCycles
+                            liftIO $ putStrLn $ show $ cs $ Not R0 R0
+printInstCycles "jmp"  = do cs <- use $ instCycles
+                            liftIO $ putStrLn $ show $ cs $ Jmp R0
+printInstCycles "bez"  = do cs <- use $ instCycles
+                            liftIO $ putStrLn $ show $ cs $ Bez R0 0
+printInstCycles "ceq"  = do cs <- use $ instCycles
+                            liftIO $ putStrLn $ show $ cs $ Ceq R0 R0 R0
+printInstCycles "cgt"  = do cs <- use $ instCycles
+                            liftIO $ putStrLn $ show $ cs $ Cgt R0 R0 R0
+printInstCycles "ldc"  = do cs <- use $ instCycles
+                            liftIO $ putStrLn $ show $ cs $ Ldc R0 0
+printInstCycles "ldm"  = do cs <- use $ instCycles
+                            liftIO $ putStrLn $ show $ cs $ Ldm R0 R0
+printInstCycles "stm"  = do cs <- use $ instCycles
+                            liftIO $ putStrLn $ show $ cs $ Stm R0 R0
+printInstCycles "halt" = do cs <- use $ instCycles
+                            liftIO $ putStrLn $ show $ cs $ Halt
+printInstCycles i      = liftIO $ putStrLn $ "Invalid instruction: " ++ i
 
 printRegisters :: ProcessorState ()
 printRegisters = do let groups = chunksOf 4 [(minBound::Register)..]

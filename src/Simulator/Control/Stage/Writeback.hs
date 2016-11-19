@@ -14,7 +14,8 @@ scalarWriteback input = do regFile.regVal pc += instLength
                            mapM_ writeback input
 
 pipelinedWriteback :: [ Maybe (Register, Int32) ] -> ProcessorState ()
-pipelinedWriteback input = condM (use $ writebackStage.stalled) (return ()) $
+pipelinedWriteback input = condM (use $ writebackStage.stalled)
+  (simData.writebackStalledCount += 1 >> return ()) $
   do mapM_ writeback input
 
 writeback :: Maybe (Register, Int32) -> ProcessorState ()

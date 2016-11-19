@@ -110,7 +110,7 @@ newProcessor insts opts = Processor
   , _dataMem         = Map.empty
   , _regFile         = newRegFile
   , _simData         = newSimdata
-  , _instCycles      = const 1
+  , _instCycles      = defaultCycles
   , _halted          = False
   , _options         = opts
   }
