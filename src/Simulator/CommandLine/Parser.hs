@@ -1,29 +1,18 @@
 -- |This module defines a parser for the commands to be used by the simulator
 --  command line.
 
-module Simulator.CmdParser
-  ( Simulator.CmdParser.parse
-  , Command(..)
+module Simulator.CommandLine.Parser
+  ( Simulator.CommandLine.Parser.parse
   ) where
 
+import Data.List
 import Text.Parsec
 import Text.Parsec.Token
+import Text.Parsec.Error
 import Text.Parsec.String (Parser)
 import Text.Parsec.Language (emptyDef)
 
-data Command = Step Int
-             | Continue
-             | Registers
-             | Memory
-             | Stats
-             | DecodeI
-             | IssueI
-             | ExecuteI
-             | WritebackI
-             | Set String Int
-             | Get String
-             | Quit
-             deriving (Show, Eq, Read)
+import Simulator.CommandLine.Command
 
 lexer = makeTokenParser languageDef
 languageDef = emptyDef
@@ -37,8 +26,17 @@ languageDef = emptyDef
   }
 
 -- |This function returns the result of parsing @str@.
-parse :: String -> Either ParseError [ Command ]
-parse str = Text.Parsec.parse (whiteSpace lexer *> commandsParser <* eof) "" str
+parse :: String -> Either String [ Command ]
+parse str = case Text.Parsec.parse (whiteSpace lexer *> commandsParser <* eof) "" str of
+  (Left  e) -> let messages = errorMessages e
+                   message_strs = init . drop 2
+                                       . filter (not . elem '\'')
+                                       . nub
+                                       . filter (not . null)
+                                       . map messageString $ messages
+                   message_list = intercalate ", " message_strs
+               in Left $ "Invalid command. Expecting:\n" ++ message_list
+  (Right r) -> Right r
 
 -- |The syntax for a list of commands is:
 --  <cmds> ::= <cmd> [ ';' <cmd> ]*

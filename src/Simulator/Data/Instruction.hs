@@ -1,11 +1,6 @@
 {-# LANGUAGE GADTs #-}
 module Simulator.Data.Instruction
-  ( Inst(..)
-  , Instruction(..)
-  , InstructionVal
-  , InstructionReg
-  , instLength
-  , defaultCycles
+  ( module Simulator.Data.Instruction
   ) where
 
 import Data.Int
@@ -69,3 +64,83 @@ defaultCycles (Ldc _   _) = 1
 defaultCycles (Ldm _ _  ) = 270
 defaultCycles (Stm   _ _) = 270
 defaultCycles (Halt     ) = 1
+
+-- |This function returns true if the specified instruction is a nop.
+isNop :: Inst a -> Bool
+isNop (Nop      ) = True
+isNop _           = False
+
+-- |This function returns true if the specified instruction is a add.
+isAdd :: Inst a -> Bool
+isAdd (Add _ _ _) = True
+isAdd _           = False
+
+-- |This function returns true if the specified instruction is a sub.
+isSub :: Inst a -> Bool
+isSub (Sub _ _ _) = True
+isSub _           = False
+
+-- |This function returns true if the specified instruction is a mul.
+isMul :: Inst a -> Bool
+isMul (Mul _ _ _) = True
+isMul _           = False
+
+-- |This function returns true if the specified instruction is a div.
+isDiv :: Inst a -> Bool
+isDiv (Div _ _ _) = True
+isDiv _           = False
+
+-- |This function returns true if the specified instruction is a and.
+isAnd :: Inst a -> Bool
+isAnd (And _ _ _) = True
+isAnd _           = False
+
+-- |This function returns true if the specified instruction is a or.
+isOr  :: Inst a -> Bool
+isOr  (Or  _ _ _) = True
+isOr  _           = False
+
+-- |This function returns true if the specified instruction is a not.
+isNot :: Inst a -> Bool
+isNot (Not _ _  ) = True
+isNot _           = False
+
+-- |This function returns true if the specified instruction is a jmp.
+isJmp :: Inst a -> Bool
+isJmp (Jmp _    ) = True
+isJmp _           = False
+
+-- |This function returns true if the specified instruction is a bez.
+isBez :: Inst a -> Bool
+isBez (Bez _ _  ) = True
+isBez _           = False
+
+-- |This function returns true if the specified instruction is a ceq.
+isCeq :: Inst a -> Bool
+isCeq (Ceq _ _ _) = True
+isCeq _           = False
+
+-- |This function returns true if the specified instruction is a cgt.
+isCgt :: Inst a -> Bool
+isCgt (Cgt _ _ _) = True
+isCgt _           = False
+
+-- |This function returns true if the specified instruction is a ldc.
+isLdc :: Inst a -> Bool
+isLdc (Ldc _ _  ) = True
+isLdc _           = False
+
+-- |This function returns true if the specified instruction is a ldm.
+isLdm :: Inst a -> Bool
+isLdm (Ldm _ _  ) = True
+isLdm _           = False
+
+-- |This function returns true if the specified instruction is a stm.
+isStm :: Inst a -> Bool
+isStm (Stm _ _  ) = True
+isStm _           = False
+
+-- |This function returns true if the specified instruction is a halt.
+isHalt :: Inst a -> Bool
+isHalt (Halt    ) = True
+isHalt _          = False
