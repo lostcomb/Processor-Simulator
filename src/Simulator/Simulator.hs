@@ -106,21 +106,21 @@ printMemory = do mem <- use $ dataMem
                      section = replicate 3 . replicate 23 $ '-'
                      line = "+" ++ intercalate "+" section ++ "+"
                  liftIO $ putStrLn line
-                 mapM_ (\ms -> do mapM_ (\m -> do liftIO $ putStr "|"
-                                                  genMem m) ms
-                                  liftIO $ putStrLn "|") groups
+                 mapM_ (\ms -> do let str = concat . map (\m -> "|" ++ genMem m) $ ms
+                                      padding = replicate (3 * 23 + 3 - length str) ' '
+                                  liftIO $ putStrLn $ str ++ padding ++ "|") groups
                  liftIO $ putStrLn line
-  where genMem :: [ (Word32, Word8) ] -> ProcessorState ()
-        genMem (b1:b2:b3:b4:[]) = do let v1 = fromIntegral (snd b1) `shiftL` 24
-                                         v2 = fromIntegral (snd b2) `shiftL` 16
-                                         v3 = fromIntegral (snd b3) `shiftL` 8
-                                         v4 = fromIntegral (snd b4)
-                                         i_s = show $ fst b1
-                                         val = (v1 .|. v2 .|. v3 .|. v4) :: Word32
-                                         v_s = show val
-                                         padding = replicate (21 - length i_s - length v_s) ' '
-                                     liftIO $ putStr $ " " ++ i_s ++ padding ++ v_s ++ " "
-        genMem _                = return ()
+  where genMem :: [ (Word32, Word8) ] -> String
+        genMem (b1:b2:b3:b4:[]) = " " ++ i_s ++ padding ++ v_s ++ " "
+          where v1 = fromIntegral (snd b1) `shiftL` 24
+                v2 = fromIntegral (snd b2) `shiftL` 16
+                v3 = fromIntegral (snd b3) `shiftL` 8
+                v4 = fromIntegral (snd b4)
+                i_s = show $ fst b1
+                val = (v1 .|. v2 .|. v3 .|. v4) :: Word32
+                v_s = show val
+                padding = replicate (21 - length i_s - length v_s) ' '
+        genMem _                = ""
 
 printStatistics :: ProcessorState ()
 printStatistics = do cs <- use $ simData.cycles

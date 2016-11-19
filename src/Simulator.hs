@@ -24,6 +24,12 @@ optionList
     , Option ['s'] ["sub_pipeline"]
       (NoArg (\opts -> opts { _pipelinedEUs = True }))
       "Enables sub pipelining in the processor."
+    , Option ['f'] ["no_insts"]
+      (ReqArg (\n opts -> opts { _noInstsPerCycle = (read n) }) "integer")
+      "Sets the number of instructions to be fetched per cycle."
+    , Option ['e'] ["no_eus"]
+      (ReqArg (\n opts -> opts { _noEUs = (read n) }) "integer")
+      "Sets the number of execution units to be used in a superscalar configuration."
     , Option []    ["help"]
       (NoArg (\opts -> opts { help = True }))
       "Prints this help message."
@@ -36,7 +42,7 @@ simulator_main args = case getOpt Permute optionList args of
                            then putStrLn $ usageInfo header optionList
                            else do input <- BS.readFile rp
                                    let prog = BS.unpack input
-                                   evalStateT (evalStateT runProcessor []) $ newProcessor prog 1 1 opts--TODO: Update to allow user set params.
+                                   evalStateT (evalStateT runProcessor []) $ newProcessor prog opts--TODO: Update to allow user set params.
   (   _,     _, errs) -> do putStrLn (concat errs ++ usageInfo header optionList)
                             exitWith (ExitFailure 1)
 

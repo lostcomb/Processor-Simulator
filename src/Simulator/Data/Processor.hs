@@ -53,20 +53,24 @@ data Type = Scalar
           deriving (Show, Eq, Read)
 
 data Options = Options
-  { _procType      :: Type
-  , _bypassEnabled :: Bool
-  , _pipelinedEUs  :: Bool
-  , help           :: Bool
+  { _procType        :: Type
+  , _bypassEnabled   :: Bool
+  , _pipelinedEUs    :: Bool
+  , _noEUs           :: Int
+  , _noInstsPerCycle :: Int
+  , help             :: Bool
   }
 -- Let Template Haskell make the lenses.
 makeLenses ''Options
 
 defaultOptions :: Options
 defaultOptions = Options
-  { _procType      = Scalar
-  , _bypassEnabled = False
-  , _pipelinedEUs  = False
-  , help           = False
+  { _procType        = Scalar
+  , _bypassEnabled   = False
+  , _pipelinedEUs    = False
+  , _noEUs           = 1
+  , _noInstsPerCycle = 1
+  , help             = False
   }
 
 -- |This data type contains all of the processors state.
@@ -91,22 +95,22 @@ data Processor = Processor
 -- Let Template Haskell make the lenses.
 makeLenses ''Processor
 
-newProcessor :: [ Word8 ] -> Int -> Int -> Options -> Processor
-newProcessor insts n_fetch n_eus opts = Processor
-  { _fetchStage      = newFetch n_fetch
+newProcessor :: [ Word8 ] -> Options -> Processor
+newProcessor insts opts = Processor
+  { _fetchStage      = newFetch
   , _decInputLatches = []
   , _decodeStage     = newDecode
   , _issInputLatches = []
   , _issueStage      = newIssue
   , _exeInputLatches = []
-  , _executeStage    = newExecute n_eus
+  , _executeStage    = newExecute
   , _wrbInputLatches = []
   , _writebackStage  = newWriteback
   , _instMem         = Seq.fromList insts
   , _dataMem         = Map.empty
   , _regFile         = newRegFile
   , _simData         = newSimdata
-  , _instCycles      = const 1 --TODO
+  , _instCycles      = const 1
   , _halted          = False
   , _options         = opts
   }

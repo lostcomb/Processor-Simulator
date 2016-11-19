@@ -15,7 +15,7 @@ scalarFetch = replicateM 1 fetch
 
 pipelinedFetch :: ProcessorState [ Maybe (Word8, Word8, Word8, Word8) ]
 pipelinedFetch = condM (use $ fetchStage.stalled) (use decInputLatches) $
-  do n_insts <- use $ fetchStage.noOfInsts
+  do n_insts <- use $ options.noInstsPerCycle
      replicateM n_insts fetch
 
 fetch :: ProcessorState (Maybe (Word8, Word8, Word8, Word8))

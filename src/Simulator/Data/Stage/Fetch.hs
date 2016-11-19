@@ -7,14 +7,12 @@ import Data.Word
 
 data Fetch = Fetch
   { _fetchStalled        :: Bool
-  , _fetchNoOfInsts      :: Int
   , _fetchProgramCounter :: Word32
   }
   deriving (Show, Eq, Read)
 
-newFetch :: Int -> Fetch
-newFetch n = Fetch
+newFetch :: Fetch
+newFetch = Fetch
   { _fetchStalled        = False
-  , _fetchNoOfInsts      = n
   , _fetchProgramCounter = 0
   }
