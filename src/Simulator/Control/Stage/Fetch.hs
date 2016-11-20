@@ -1,6 +1,7 @@
 module Simulator.Control.Stage.Fetch
   ( scalarFetch
   , pipelinedFetch
+  , superscalarFetch
   ) where
 
 import Data.Word
@@ -10,14 +11,17 @@ import Control.Monad.State
 
 import Simulator.Data.Processor
 
-scalarFetch :: ProcessorState [ Maybe (Word8, Word8, Word8, Word8) ]
-scalarFetch = replicateM 1 fetch
+scalarFetch :: ProcessorState (Maybe (Word8, Word8, Word8, Word8))
+scalarFetch = fetch
 
-pipelinedFetch :: ProcessorState [ Maybe (Word8, Word8, Word8, Word8) ]
-pipelinedFetch = condM (use $ fetchStage.stalled)
-  (simData.fetchStalledCount += 1 >> use decInputLatches) $
-  do n_insts <- use $ options.noInstsPerCycle
-     replicateM n_insts fetch
+pipelinedFetch :: ProcessorState (Maybe (Word8, Word8, Word8, Word8))
+pipelinedFetch = condM (liftM not . use $ fetchStage.stalled) fetch $
+  do simData.fetchStalledCount += 1
+     latches <- use decInputLatches
+     return . head $ latches
+
+superscalarFetch :: ProcessorState [ Maybe (Word8, Word8, Word8, Word8) ]
+superscalarFetch = undefined
 
 fetch :: ProcessorState (Maybe (Word8, Word8, Word8, Word8))
 fetch = do pc_val <- use $ fetchStage.programCounter

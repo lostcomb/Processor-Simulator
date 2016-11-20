@@ -1,6 +1,7 @@
 module Simulator.Control.Stage.Execute
   ( scalarExecute
   , pipelinedExecute
+  , superscalarExecute
   ) where
 
 import Data.Int
@@ -13,14 +14,14 @@ import Control.Monad.State
 import Simulator.Data.Processor
 import Simulator.Control.Stall
 
-scalarExecute :: [ Maybe InstructionVal ] -> ProcessorState [ Maybe (Register, Int32) ]
-scalarExecute input = mapM scalarExecute' input
+scalarExecute :: Maybe InstructionVal -> ProcessorState (Maybe (Register, Int32))
+scalarExecute input = scalarExecute' input
   where scalarExecute' Nothing = return Nothing
         scalarExecute' (Just (Instruction c i)) = do simData.insts += 1
                                                      simData.cycles += (c - 1)
                                                      execute i
 
-pipelinedExecute :: [ Maybe InstructionVal ] -> ProcessorState [ Maybe (Register, Int32) ]
+pipelinedExecute :: Maybe InstructionVal -> ProcessorState (Maybe (Register, Int32))
 pipelinedExecute input = condM (use $ executeStage.stalled)
   (simData.executeStalledCount += 1 >> use wrbInputLatches) $
   do exeInputLatches .= []
@@ -35,6 +36,9 @@ pipelinedExecute input = condM (use $ executeStage.stalled)
                                         stallIssue
                                         exeInputLatches %= (++) [ Just i' ]
                                         return Nothing
+
+superscalarExecute :: [ Maybe InstructionVal ] -> ProcessorState [ Maybe (Register, Int32) ]
+superscalarExecute = undefined
 
 execute :: Inst Int32 -> ProcessorState (Maybe (Register, Int32))
 execute (Nop         ) = return Nothing

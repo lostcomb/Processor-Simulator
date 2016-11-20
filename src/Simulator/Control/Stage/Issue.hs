@@ -1,6 +1,7 @@
 module Simulator.Control.Stage.Issue
   ( scalarIssue
   , pipelinedIssue
+  , superscalarIssue
   ) where
 
 import Data.Int
@@ -10,13 +11,20 @@ import Control.Monad.State
 import Simulator.Data.Processor
 import Simulator.Control.Stall
 
-scalarIssue :: [ Maybe InstructionReg ] -> ProcessorState [ Maybe InstructionVal ]
-scalarIssue input = mapM issue input
+scalarIssue :: Maybe InstructionReg -> ProcessorState (Maybe InstructionVal)
+scalarIssue input = issue input
+  where issue (Nothing               ) = return Nothing
+        issue (Just (Instruction c i)) = do i' <- fillInsts i
+                                            return . Just . Instruction c $ i'
 
-pipelinedIssue :: [ Maybe InstructionReg ] -> ProcessorState [ Maybe InstructionVal ]
-pipelinedIssue input = condM (use $ issueStage.stalled)
-  (simData.issueStalledCount += 1 >> use exeInputLatches) $
-  do mapM issue input
+pipelinedIssue :: Maybe InstructionReg -> ProcessorState (Maybe InstructionVal) --TODO: Clean up how the fill insts function works.
+pipelinedIssue input = condM (liftM not . use $ issueStage.stalled) (issue input) $
+  do simData.issueStalledCount += 1
+     latches <- use exeInputLatches
+     return . head $ latches
+
+superscalarIssue :: [ Maybe InstructionReg ] -> ProcessorState [ Maybe InstructionVal ]
+superscalarIssue = undefined
 
 issue :: Maybe InstructionReg -> ProcessorState (Maybe InstructionVal)
 issue Nothing = return Nothing

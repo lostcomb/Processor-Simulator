@@ -1,6 +1,7 @@
 module Simulator.Control.Stage.Decode
   ( scalarDecode
   , pipelinedDecode
+  , superscalarDecode
   ) where
 
 import Data.Bits
@@ -11,13 +12,17 @@ import Control.Monad.State
 
 import Simulator.Data.Processor
 
-scalarDecode :: [ Maybe (Word8, Word8, Word8, Word8) ] -> ProcessorState [ Maybe InstructionReg ]
-scalarDecode input = mapM decode input
+scalarDecode :: Maybe (Word8, Word8, Word8, Word8) -> ProcessorState (Maybe InstructionReg)
+scalarDecode input = decode input
 
-pipelinedDecode :: [ Maybe (Word8, Word8, Word8, Word8) ] -> ProcessorState [ Maybe InstructionReg ]
-pipelinedDecode input = condM (use $ decodeStage.stalled)
-  (simData.decodeStalledCount += 1 >> use issInputLatches) $
-  do mapM decode input
+pipelinedDecode :: Maybe (Word8, Word8, Word8, Word8) -> ProcessorState (Maybe InstructionReg)
+pipelinedDecode input = condM (liftM not . use $ decodeStage.stalled) (decode input) $
+  do simData.decodeStalledCount += 1
+     latches <- use issInputLatches
+     return . head $ latches
+
+superscalarDecode :: [ Maybe (Word8, Word8, Word8, Word8) ] -> ProcessorState [ Maybe InstructionReg ]
+superscalarDecode = undefined
 
 decode :: Maybe (Word8, Word8, Word8, Word8) -> ProcessorState (Maybe InstructionReg)
 decode (Nothing) = return Nothing
