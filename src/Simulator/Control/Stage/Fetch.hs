@@ -15,10 +15,14 @@ scalarFetch :: ProcessorState (Maybe (Word8, Word8, Word8, Word8))
 scalarFetch = fetch
 
 pipelinedFetch :: ProcessorState (Maybe (Word8, Word8, Word8, Word8))
-pipelinedFetch = condM (liftM not . use $ fetchStage.stalled) fetch $
-  do simData.fetchStalledCount += 1
-     latches <- use decInputLatches
-     return . head $ latches
+pipelinedFetch = do
+  s <- use $ fetchStage.stalled
+  if s then do
+    simData.fetchStalledCount += 1
+    latches <- use decInputLatches
+    return . head $ latches
+  else do
+    fetch
 
 superscalarFetch :: ProcessorState [ Maybe (Word8, Word8, Word8, Word8) ]
 superscalarFetch = undefined

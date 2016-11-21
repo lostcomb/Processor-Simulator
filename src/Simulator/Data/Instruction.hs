@@ -61,8 +61,8 @@ defaultCycles (Bez   _ _) = 1
 defaultCycles (Ceq _ _ _) = 1
 defaultCycles (Cgt _ _ _) = 1
 defaultCycles (Ldc _   _) = 1
-defaultCycles (Ldm _ _  ) = 270
-defaultCycles (Stm   _ _) = 270
+defaultCycles (Ldm _ _  ) = 20
+defaultCycles (Stm   _ _) = 20
 defaultCycles (Halt     ) = 1
 
 -- |This function returns true if the specified instruction is a nop.

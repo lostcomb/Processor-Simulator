@@ -16,11 +16,15 @@ scalarDecode :: Maybe (Word8, Word8, Word8, Word8) -> ProcessorState (Maybe Inst
 scalarDecode input = decode input
 
 pipelinedDecode :: Maybe (Word8, Word8, Word8, Word8) -> ProcessorState (Maybe InstructionReg)
-pipelinedDecode input = condM (liftM not . use $ decodeStage.stalled) (decode input) $
-  do simData.decodeStalledCount += 1
-     latches <- use issInputLatches
-     return . head $ latches
-
+pipelinedDecode input = do
+  s <- use $ decodeStage.stalled
+  if s then do
+    simData.decodeStalledCount += 1
+    latches <- use issInputLatches
+    return . head $ latches
+  else do
+    decode input
+    
 superscalarDecode :: [ Maybe (Word8, Word8, Word8, Word8) ] -> ProcessorState [ Maybe InstructionReg ]
 superscalarDecode = undefined
 
