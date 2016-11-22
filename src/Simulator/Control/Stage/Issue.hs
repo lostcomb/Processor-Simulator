@@ -31,7 +31,7 @@ pipelinedIssue input = do
           b  <- use $ options.bypassEnabled
           bs <- use $ executeStage.bypassValues
           d  <- if b then checkForDependency i bs
-                     else checkForDependency i []
+                     else checkForDependency i [] -- Move this to the execute.
           if d then do
             stallIssue
             return Nothing
