@@ -24,7 +24,6 @@ superscalarWriteback = undefined
 writeback :: ExecutedData -> ProcessorState ()
 writeback (Nothing) = return ()
 writeback (Just  d) = do regFile.regVal  pc += instLength
-                         continueFetch
                          case d of
                            Just (r, v) -> do
                              regFile.regVal  r  .= v

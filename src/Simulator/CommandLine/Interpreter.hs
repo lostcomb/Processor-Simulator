@@ -79,13 +79,13 @@ interpret' step (Latches   ) = do dec <- use decInputLatches
                                   let max_len = maximum . map length
                                               $ [ show dec, show iss, show exe, show wrb ]
                                       arrow   = replicate (max_len `div` 2) ' ' ++ "^"
-                                  liftIO . putStrLn . show $ wrb
+                                  liftIO . putStrLn $ "WRB: " ++ show wrb
                                   liftIO . putStrLn $ arrow
-                                  liftIO . putStrLn . show $ exe
+                                  liftIO . putStrLn $ "EXE: " ++ show exe
                                   liftIO . putStrLn $ arrow
-                                  liftIO . putStrLn . show $ iss
+                                  liftIO . putStrLn $ "ISS: " ++ show iss
                                   liftIO . putStrLn $ arrow
-                                  liftIO . putStrLn . show $ dec
+                                  liftIO . putStrLn $ "DEC: " ++ show dec
 interpret' step (Quit      ) = liftIO exitSuccess
 
 setInstCycles :: String -> Int -> ProcessorState ()

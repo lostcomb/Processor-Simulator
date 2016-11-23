@@ -25,7 +25,7 @@ pipelinedExecute :: IssuedData -> ProcessorState (Either IssuedData ExecutedData
 pipelinedExecute (Nothing               ) = return . Right $ Nothing
 pipelinedExecute (Just (Instruction 1 i)) = do
           simData.insts += 1
-          continueFetch
+          continueIssue
           i' <- execute i
           b  <- use $ options.bypassEnabled
           if b then executeStage.bypassValues .= (Just . maybeToList) i'

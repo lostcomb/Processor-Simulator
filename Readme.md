@@ -4,10 +4,13 @@
 
 ## TODO: ##
 
-* Finalise how the pc works.
 * Implement proper stalling logic.
-* Implement invalidation of stages.
 * Implement sub pipeline in the EU.
+* Implement re-order buffer.
+* Implement out-of-order scheduling.
+* Implement branch prediction.
+* Implement multiple execution units.
+* Implement reservation stations.
 
 # ISA Reference: #
 

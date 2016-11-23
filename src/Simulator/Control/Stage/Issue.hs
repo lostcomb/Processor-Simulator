@@ -23,9 +23,10 @@ pipelinedIssue (Just (Instruction c i)) = do
           bs <- use $ executeStage.bypassValues
           d  <- checkForDependency i bs
           if d then do
-            stallIssue
+            stallFetch
             return Nothing
           else do
+            continueFetch
             i' <- fillInsts i bs
             return . Just . Instruction c $ i'
 
