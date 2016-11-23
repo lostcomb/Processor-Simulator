@@ -10,28 +10,22 @@ import Control.Monad
 import Control.Monad.State
 
 import Simulator.Data.Processor
+import Simulator.Control.Stall
 
-scalarFetch :: ProcessorState (Maybe (Word8, Word8, Word8, Word8))
+scalarFetch :: ProcessorState FetchedData
 scalarFetch = fetch
 
-pipelinedFetch :: ProcessorState (Maybe (Word8, Word8, Word8, Word8))
-pipelinedFetch = do
-  s <- use $ fetchStage.stalled
-  if s then do
-    simData.fetchStalledCount += 1
-    latches <- use decInputLatches
-    return . head $ latches
-  else do
-    fetch
+pipelinedFetch :: ProcessorState FetchedData
+pipelinedFetch = fetch
 
-superscalarFetch :: ProcessorState [ Maybe (Word8, Word8, Word8, Word8) ]
+superscalarFetch :: ProcessorState [ FetchedData ]
 superscalarFetch = undefined
 
-fetch :: ProcessorState (Maybe (Word8, Word8, Word8, Word8))
+fetch :: ProcessorState FetchedData
 fetch = do pc_val <- use $ fetchStage.programCounter
            i1 <- use $ instMem.item (fromIntegral  pc_val     )
            i2 <- use $ instMem.item (fromIntegral (pc_val + 1))
            i3 <- use $ instMem.item (fromIntegral (pc_val + 2))
            i4 <- use $ instMem.item (fromIntegral (pc_val + 3))
-           fetchStage.programCounter += instLength
+           fetchStage . programCounter += instLength
            return $ Just (i1, i2, i3, i4)

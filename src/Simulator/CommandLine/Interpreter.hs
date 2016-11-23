@@ -29,16 +29,63 @@ interpret' step (Continue ) = do whileM_ (liftM not $ use halted)
 interpret' step (Registers ) = printRegisters
 interpret' step (Memory    ) = printMemory
 interpret' step (Stats     ) = printStatistics
-interpret' step (DecodeI   ) = do dec <- use $ decInputLatches
-                                  liftIO . putStrLn . show $ dec
-interpret' step (IssueI    ) = do iss <- use $ issInputLatches
-                                  liftIO . putStrLn . show $ iss
-interpret' step (ExecuteI  ) = do exe <- use $ exeInputLatches
-                                  liftIO . putStrLn . show $ exe
-interpret' step (WritebackI) = do wrb <- use $ wrbInputLatches
-                                  liftIO . putStrLn . show $ wrb
+interpret' step (FetchI    ) = do liftIO . putStrLn $ "Fetch Stage:"
+                                  stall   <- use $ fetchStage.stalled
+                                  liftIO . putStrLn $ "  Stalled: " ++ show stall
+                                  pc      <- use $ fetchStage.programCounter
+                                  liftIO . putStrLn $ "  PC: " ++ show pc
+                                  output  <- use $ decInputLatches
+                                  liftIO . putStrLn $ "  Output: " ++ show output
+interpret' step (DecodeI   ) = do liftIO . putStrLn $ "Decode Stage:"
+                                  stall   <- use $ decodeStage.stalled
+                                  liftIO . putStrLn $ "  Stalled: " ++ show stall
+                                  spec    <- use $ decodeStage.speculative
+                                  liftIO . putStrLn $ "  Speculative: " ++ show spec
+                                  input  <- use $ decInputLatches
+                                  liftIO . putStrLn $ "  Input: " ++ show input
+                                  output  <- use $ issInputLatches
+                                  liftIO . putStrLn $ "  Output: " ++ show output
+interpret' step (IssueI    ) = do liftIO . putStrLn $ "Issue Stage:"
+                                  stall   <- use $ issueStage.stalled
+                                  liftIO . putStrLn $ "  Stalled: " ++ show stall
+                                  i_win   <- use $ issueStage.issueWindow
+                                  liftIO . putStrLn $ "  Issue Window: " ++ show i_win
+                                  e_win   <- use $ issueStage.execWindow
+                                  liftIO . putStrLn $ "  Exec Window: " ++ show e_win
+                                  input  <- use $ issInputLatches
+                                  liftIO . putStrLn $ "  Input: " ++ show input
+                                  output  <- use $ exeInputLatches
+                                  liftIO . putStrLn $ "  Output: " ++ show output
+interpret' step (ExecuteI  ) = do liftIO . putStrLn $ "Execute Stage:"
+                                  stall   <- use $ executeStage.stalled
+                                  liftIO . putStrLn $ "  Stalled: " ++ show stall
+                                  bypass  <- use $ executeStage.bypassValues
+                                  liftIO . putStrLn $ "  Bypass Values: " ++ show bypass
+                                  input  <- use $ exeInputLatches
+                                  liftIO . putStrLn $ "  Input: " ++ show input
+                                  output  <- use $ wrbInputLatches
+                                  liftIO . putStrLn $ "  Output: " ++ show output
+interpret' step (WritebackI) = do liftIO . putStrLn $ "Writeback Stage:"
+                                  stall   <- use $ writebackStage.stalled
+                                  liftIO . putStrLn $ "  Stalled: " ++ show stall
+                                  input  <- use $ wrbInputLatches
+                                  liftIO . putStrLn $ "  Input: " ++ show input
 interpret' step (Set inst c) = setInstCycles inst c
 interpret' step (Get inst  ) = printInstCycles inst
+interpret' step (Latches   ) = do dec <- use decInputLatches
+                                  iss <- use issInputLatches
+                                  exe <- use exeInputLatches
+                                  wrb <- use wrbInputLatches
+                                  let max_len = maximum . map length
+                                              $ [ show dec, show iss, show exe, show wrb ]
+                                      arrow   = replicate (max_len `div` 2) ' ' ++ "^"
+                                  liftIO . putStrLn . show $ wrb
+                                  liftIO . putStrLn $ arrow
+                                  liftIO . putStrLn . show $ exe
+                                  liftIO . putStrLn $ arrow
+                                  liftIO . putStrLn . show $ iss
+                                  liftIO . putStrLn $ arrow
+                                  liftIO . putStrLn . show $ dec
 interpret' step (Quit      ) = liftIO exitSuccess
 
 setInstCycles :: String -> Int -> ProcessorState ()

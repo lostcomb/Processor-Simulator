@@ -6,32 +6,30 @@ module Simulator.Control.Stage.Writeback
 
 import Data.Int
 import Control.Lens
+import Control.Monad
 import Control.Monad.State
 
 import Simulator.Data.Processor
 import Simulator.Control.Stall
-import Simulator.Control.Invalidate
 
-scalarWriteback :: Maybe (Register, Int32) -> ProcessorState ()
-scalarWriteback input = do regFile.regVal pc += instLength
-                           writeback input
+scalarWriteback :: ExecutedData -> ProcessorState ()
+scalarWriteback = writeback
 
-pipelinedWriteback :: Maybe (Register, Int32) -> ProcessorState () --TODO:
-pipelinedWriteback input = condM (use $ writebackStage.stalled)
-  (simData.writebackStalledCount += 1) $
-  do pc_val <- use $ fetchStage.programCounter
-     regFile.regVal pc .= fromIntegral pc_val
-     writeback input
+pipelinedWriteback :: ExecutedData -> ProcessorState ()
+pipelinedWriteback = writeback
 
-superscalarWriteback :: [ Maybe (Register, Int32) ] -> ProcessorState ()
+superscalarWriteback :: [ ExecutedData ] -> ProcessorState ()
 superscalarWriteback = undefined
 
-writeback :: Maybe (Register, Int32) -> ProcessorState ()
-writeback Nothing = return ()
-writeback (Just (r, v)) = do regFile.regVal r .= v
-                             regFile.regFlag r .= Clean
-                             continueWriteback
-                             if r == pc
-                               then do fetchStage.programCounter .= fromIntegral v
-                                       invalidateExecute
-                               else return ()
+writeback :: ExecutedData -> ProcessorState ()
+writeback (Nothing) = return ()
+writeback (Just  d) = do regFile.regVal  pc += instLength
+                         continueFetch
+                         case d of
+                           Just (r, v) -> do
+                             regFile.regVal  r  .= v
+                             regFile.regFlag r  .= Clean
+                             when (r == pc) $ do
+                               fetchStage.programCounter .= fromIntegral v
+                               invalidate .= True
+                           Nothing     -> return ()

@@ -39,23 +39,34 @@ data Flag = Clean
           | Dirty
   deriving (Show, Eq, Read)
 
+-- |This defines a new register file using all of the registers defined by
+--  Register.
 newRegFile :: RegisterFile
 newRegFile = zip [(minBound :: Register)..] (repeat (0, Clean))
 
+-- |This lens provides a getter and setter for the register values in the
+--  register file.
 regVal :: Register -> Lens' RegisterFile Int32
 regVal r = lens (\rf   -> searchWith (\(v, _) -> v     ) r rf)
                 (\rf v -> updateWith (\(_, f) -> (v, f)) r rf)
 
+-- |This lens provides a getter and setter for the register flags in the
+--  register file.
 regFlag :: Register -> Lens' RegisterFile Flag
 regFlag r = lens (\rf   -> searchWith (\(_, f) -> f     ) r rf)
                  (\rf f -> updateWith (\(v, _) -> (v, f)) r rf)
 
+-- |This function returns the value associated with the key @r@ applied to @f@.
+--  Calls 'error' if the key @r@ is not in the association list.
 searchWith :: (Eq a) => (b -> c) -> a -> [ (a, b) ] -> c
 searchWith f r []           = error "searchWith: element not part of the specified list."
 searchWith f r ((x, y) : l)
   | r == x                  = f y
   | otherwise               = searchWith f r l
 
+-- |This function returns the new association list with the value associated
+--  with the key @r@ applied to the function @f@. Calls 'error' if the key
+--  @r@ is not in the association list.
 updateWith :: (Eq a) => (b -> b) -> a -> [ (a, b) ] -> [ (a, b) ]
 updateWith f r []           = error "updateWith: element not part of the specified list."
 updateWith f r ((x, y) : l)

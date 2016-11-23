@@ -7,11 +7,13 @@ data Command = Step Int
              | Registers
              | Memory
              | Stats
+             | FetchI
              | DecodeI
              | IssueI
              | ExecuteI
              | WritebackI
              | Set String Int
              | Get String
+             | Latches
              | Quit
              deriving (Show, Eq, Read)

@@ -5,45 +5,34 @@ module Simulator.Control.Stage.Issue
   ) where
 
 import Data.Int
+import Data.Maybe
 import Control.Lens
 import Control.Monad.State
 
 import Simulator.Data.Processor
 import Simulator.Control.Stall
 
-scalarIssue :: Maybe InstructionReg -> ProcessorState (Maybe InstructionVal)
-scalarIssue input = issue input
-  where issue (Nothing               ) = return Nothing
-        issue (Just (Instruction c i)) = do i' <- fillInsts i []
-                                            return . Just . Instruction c $ i'
+scalarIssue :: DecodedData -> ProcessorState IssuedData
+scalarIssue (Nothing               ) = return Nothing
+scalarIssue (Just (Instruction c i)) = do i' <- fillInsts i Nothing
+                                          return . Just . Instruction c $ i'
 
-pipelinedIssue :: Maybe InstructionReg -> ProcessorState (Maybe InstructionVal)
-pipelinedIssue input = do
-  s <- use $ issueStage.stalled
-  if s then do
-    simData.issueStalledCount += 1
-    latches <- use exeInputLatches
-    return . head $ latches
-  else do
-    issue input
-  where issue (Nothing               ) = return Nothing
-        issue (Just (Instruction c i)) = do
-          b  <- use $ options.bypassEnabled
+pipelinedIssue :: DecodedData -> ProcessorState IssuedData
+pipelinedIssue (Nothing               ) = return Nothing
+pipelinedIssue (Just (Instruction c i)) = do
           bs <- use $ executeStage.bypassValues
-          d  <- if b then checkForDependency i bs
-                     else checkForDependency i [] -- Move this to the execute.
+          d  <- checkForDependency i bs
           if d then do
             stallIssue
             return Nothing
           else do
-            i' <- if b then fillInsts i bs
-                       else fillInsts i []
+            i' <- fillInsts i bs
             return . Just . Instruction c $ i'
 
-superscalarIssue :: [ Maybe InstructionReg ] -> ProcessorState [ Maybe InstructionVal ]
+superscalarIssue :: [ DecodedData ] -> ProcessorState [ IssuedData ]
 superscalarIssue = undefined
 
-checkForDependency :: Inst Register -> [ (Register, Int32) ] -> ProcessorState Bool
+checkForDependency :: Inst Register -> Maybe [ (Register, Int32) ] -> ProcessorState Bool
 checkForDependency i bypass = case i of
   (Nop         ) -> return False
   (Add rd ri rj) -> (||) <$> check ri <*> check rj
@@ -63,10 +52,10 @@ checkForDependency i bypass = case i of
   (Halt        ) -> return False
   where check :: Register -> ProcessorState Bool
         check r = do f <- use (regFile.regFlag r)
-                     let b = lookup r bypass
+                     let b = lookup r . fromMaybe [] $ bypass
                      return $ f == Dirty && b == Nothing
 
-fillInsts :: Inst Register -> [ (Register, Int32) ] -> ProcessorState (Inst Int32)
+fillInsts :: Inst Register -> Maybe [ (Register, Int32) ] -> ProcessorState (Inst Int32)
 fillInsts i bypass = case i of
   (Nop         ) -> return Nop
   (Add rd ri rj) -> Add <$> stainReg rd <*> updateReg ri <*> updateReg rj
@@ -89,7 +78,7 @@ fillInsts i bypass = case i of
                          return r
         updateReg :: Register -> ProcessorState Int32
         updateReg r = do val <- use $ regFile.regVal r
-                         return . findWithDefault val r $ bypass
+                         return . findWithDefault val r . fromMaybe [] $ bypass
 
 findWithDefault :: (Eq a) => b -> a -> [ (a, b) ] -> b
 findWithDefault def x []            = def

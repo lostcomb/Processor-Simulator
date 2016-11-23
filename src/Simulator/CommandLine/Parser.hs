@@ -1,6 +1,5 @@
 -- |This module defines a parser for the commands to be used by the simulator
 --  command line.
-
 module Simulator.CommandLine.Parser
   ( Simulator.CommandLine.Parser.parse
   ) where
@@ -18,10 +17,11 @@ lexer = makeTokenParser languageDef
 languageDef = emptyDef
   { reservedNames = [ "step"      , "continue"
                     , "registers" , "memory"
-                    , "stats"     , "decodei"
-                    , "issuei"    , "executei"
-                    , "writebacki", "set"
-                    , "get"       , "quit"
+                    , "stats"     , "fetchi"
+                    , "decodei"   , "issuei"
+                    , "executei"  , "writebacki"
+                    , "set"       , "get"
+                    , "latches"   , "quit"
                     ]
   }
 
@@ -49,12 +49,14 @@ commandsParser = commandParser `sepBy` semi lexer
 --        |   'registers'
 --        |   'memory'
 --        |   'stats'
+--        |   'fetchi'
 --        |   'decodei'
 --        |   'issuei'
 --        |   'executei'
 --        |   'writebacki'
 --        |   'set' <instruction_id> <integer>
 --        |   'get' <instruction_id>
+--        |   'latches'
 --        |   'quit'
 commandParser :: Parser Command
 commandParser =   (Step       <$  reserved lexer "step"
@@ -63,6 +65,7 @@ commandParser =   (Step       <$  reserved lexer "step"
               <|> (Registers  <$  reserved lexer "registers"               )
               <|> (Memory     <$  reserved lexer "memory"                  )
               <|> (Stats      <$  reserved lexer "stats"                   )
+              <|> (FetchI     <$  reserved lexer "fetchi"                  )
               <|> (DecodeI    <$  reserved lexer "decodei"                 )
               <|> (IssueI     <$  reserved lexer "issuei"                  )
               <|> (ExecuteI   <$  reserved lexer "executei"                )
@@ -72,4 +75,5 @@ commandParser =   (Step       <$  reserved lexer "step"
                               <*> (fromIntegral <$> integer lexer)         )
               <|> (Get        <$  reserved lexer "get"
                               <*> identifier lexer                         )
+              <|> (Latches    <$  reserved lexer "latches"                 )
               <|> (Quit       <$  reserved lexer "quit"                    )

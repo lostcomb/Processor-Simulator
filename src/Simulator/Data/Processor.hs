@@ -73,17 +73,24 @@ defaultOptions = Options
   , help             = False
   }
 
+-- |These types correspond to the types of the output data for each stage.
+type FetchedData  = Maybe (Word8, Word8, Word8, Word8)
+type DecodedData  = Maybe InstructionReg
+type IssuedData   = Maybe InstructionVal
+type ExecutedData = Maybe (Maybe (Register, Int32))
+
 -- |This data type contains all of the processors state.
 data Processor = Processor
   { _fetchStage      :: Fetch
-  , _decInputLatches :: [ Maybe (Word8, Word8, Word8, Word8) ]
+  , _decInputLatches :: Either FetchedData [ FetchedData ]
   , _decodeStage     :: Decode
-  , _issInputLatches :: [ Maybe InstructionReg ]
+  , _issInputLatches :: Either DecodedData [ DecodedData ]
   , _issueStage      :: Issue
-  , _exeInputLatches :: [ Maybe InstructionVal ]
+  , _exeInputLatches :: Either IssuedData [ IssuedData ]
   , _executeStage    :: Execute
-  , _wrbInputLatches :: [ Maybe (Register, Int32) ]
+  , _wrbInputLatches :: Either ExecutedData [ ExecutedData ]
   , _writebackStage  :: Writeback
+  , _invalidate      :: Bool
   , _instMem         :: InstMem
   , _dataMem         :: DataMem
   , _regFile         :: RegisterFile
@@ -98,14 +105,15 @@ makeLenses ''Processor
 newProcessor :: [ Word8 ] -> Options -> Processor
 newProcessor insts opts = Processor
   { _fetchStage      = newFetch
-  , _decInputLatches = []
+  , _decInputLatches = latches (_procType opts)
   , _decodeStage     = newDecode
-  , _issInputLatches = []
+  , _issInputLatches = latches (_procType opts)
   , _issueStage      = newIssue
-  , _exeInputLatches = []
+  , _exeInputLatches = latches (_procType opts)
   , _executeStage    = newExecute
-  , _wrbInputLatches = []
+  , _wrbInputLatches = latches (_procType opts)
   , _writebackStage  = newWriteback
+  , _invalidate      = False
   , _instMem         = Seq.fromList insts
   , _dataMem         = Map.empty
   , _regFile         = newRegFile
@@ -114,6 +122,8 @@ newProcessor insts opts = Processor
   , _halted          = False
   , _options         = opts
   }
+  where latches Superscalar = Right . replicate (_noInstsPerCycle opts) $ Nothing
+        latches _           = Left Nothing
 
 -- Define the type of functions that operate on the processor.
 type ProcessorState a = StateT Processor IO a

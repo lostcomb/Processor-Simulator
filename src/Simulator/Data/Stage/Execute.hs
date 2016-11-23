@@ -6,20 +6,14 @@ module Simulator.Data.Stage.Execute
 import Data.Int
 import Simulator.Data.Registers
 
-type Latches = [ Maybe (Register, Int32) ]
-
 data Execute = Execute
-  { _executeStalled         :: Bool
-  , _executeInvalidated     :: Bool
-  , _executeBypassValues    :: [ (Register, Int32) ]
-  , _executePipelineLatches :: [ Latches ]
+  { _executeStalled      :: Bool
+  , _executeBypassValues :: Maybe [ (Register, Int32) ]
   }
   deriving (Show, Eq, Read)
 
 newExecute :: Execute
 newExecute = Execute
-  { _executeStalled         = False
-  , _executeInvalidated     = False
-  , _executeBypassValues    = []
-  , _executePipelineLatches = []
+  { _executeStalled      = False
+  , _executeBypassValues = Nothing
   }

@@ -1,20 +1,63 @@
+{-# LANGUAGE FlexibleContexts, RankNTypes #-}
 module Simulator.Control.Stall
-  ( stallFetch
-  , continueFetch
-  , stallDecode
-  , continueDecode
-  , stallIssue
-  , continueIssue
-  , stallExecute
-  , continueExecute
-  , stallWriteback
-  , continueWriteback
+  ( module Simulator.Control.Stall
   ) where
 
 import Control.Lens
 import Control.Monad.State
 
 import Simulator.Data.Processor
+
+-- |This function returns the value of a Left.
+leftM :: (Monad m) => (Either a b) -> m a
+leftM (Left a) = return a
+leftM _        = fail "leftM applied to Right value."
+
+-- |This function returns the value of a Right.
+rightM :: (Monad m) => (Either a b) -> m b
+rightM (Right b) = return b
+rightM _         = fail "rightM applied to Left value."
+
+-- |This function returns the Left value of checkStall.
+checkStallP :: (HasStalled a Bool)
+            => Lens' Processor a
+            -> Lens' Simdata Int
+            -> ProcessorState (Either b c)
+            -> ProcessorState (Either b c)
+            -> ProcessorState b
+checkStallP stage count latches m = checkStall stage count latches m >>= leftM
+
+-- |This function returns the Right value of checkStall.
+checkStallS :: (HasStalled a Bool)
+            => Lens' Processor a
+            -> Lens' Simdata Int
+            -> ProcessorState (Either b c)
+            -> ProcessorState (Either b c)
+            -> ProcessorState c
+checkStallS stage count latches m = checkStall stage count latches m >>= rightM
+
+-- |This function returns @latches@ and increments @count@ if @stage@ is stalled.
+--  If @stage@ is not stalled, it returns @m@.
+checkStall :: (HasStalled a Bool)
+           => Lens' Processor a
+           -> Lens' Simdata Int
+           -> ProcessorState b
+           -> ProcessorState b
+           -> ProcessorState b
+checkStall stage count latches m
+  = do s <- use $ stage.stalled
+       if s then do
+         simData.count += 1
+         latches
+       else m
+
+-- |This function continues all of the stages of the processor.
+continueAll :: ProcessorState ()
+continueAll = do continueFetch
+                 continueDecode
+                 continueIssue
+                 continueExecute
+                 continueWriteback
 
 -- |This function stalls the fetch stage of the processor.
 stallFetch :: ProcessorState ()

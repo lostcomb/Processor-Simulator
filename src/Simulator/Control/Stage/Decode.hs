@@ -11,24 +11,18 @@ import Control.Lens
 import Control.Monad.State
 
 import Simulator.Data.Processor
+import Simulator.Control.Stall
 
-scalarDecode :: Maybe (Word8, Word8, Word8, Word8) -> ProcessorState (Maybe InstructionReg)
-scalarDecode input = decode input
+scalarDecode :: FetchedData -> ProcessorState DecodedData
+scalarDecode = decode
 
-pipelinedDecode :: Maybe (Word8, Word8, Word8, Word8) -> ProcessorState (Maybe InstructionReg)
-pipelinedDecode input = do
-  s <- use $ decodeStage.stalled
-  if s then do
-    simData.decodeStalledCount += 1
-    latches <- use issInputLatches
-    return . head $ latches
-  else do
-    decode input
-    
-superscalarDecode :: [ Maybe (Word8, Word8, Word8, Word8) ] -> ProcessorState [ Maybe InstructionReg ]
+pipelinedDecode :: FetchedData -> ProcessorState DecodedData
+pipelinedDecode = decode
+
+superscalarDecode :: [ FetchedData ] -> ProcessorState [ DecodedData ]
 superscalarDecode = undefined
 
-decode :: Maybe (Word8, Word8, Word8, Word8) -> ProcessorState (Maybe InstructionReg)
+decode :: FetchedData -> ProcessorState DecodedData
 decode (Nothing) = return Nothing
 decode (Just  i) = do let inst = decodeInst i
                       cycles <- use $ instCycles

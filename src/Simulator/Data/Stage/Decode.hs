@@ -5,7 +5,6 @@ module Simulator.Data.Stage.Decode
 
 data Decode = Decode
   { _decodeStalled     :: Bool
-  , _decodeInvalidated :: Bool
   , _decodeSpeculative :: Bool
   }
   deriving (Show, Eq, Read)
@@ -13,6 +12,5 @@ data Decode = Decode
 newDecode :: Decode
 newDecode = Decode
   { _decodeStalled     = False
-  , _decodeInvalidated = False
   , _decodeSpeculative = False
   }

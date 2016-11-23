@@ -7,7 +7,6 @@ import Simulator.Data.Instruction
 
 data Issue = Issue
   { _issueStalled      :: Bool
-  , _issueInvalidated  :: Bool
   , _issueIssueWindow  :: [ InstructionReg ]
   , _issueExecWindow   :: [ InstructionReg ]
   }
@@ -16,7 +15,6 @@ data Issue = Issue
 newIssue :: Issue
 newIssue = Issue
   { _issueStalled      = False
-  , _issueInvalidated  = False
   , _issueIssueWindow  = []
   , _issueExecWindow   = []
   }

@@ -14,37 +14,28 @@ import Control.Monad.State
 import Simulator.Data.Processor
 import Simulator.Control.Stall
 
-scalarExecute :: Maybe InstructionVal -> ProcessorState (Maybe (Register, Int32))
-scalarExecute input = scalarExecute' input
-  where scalarExecute' (Nothing               ) = return Nothing
-        scalarExecute' (Just (Instruction c i)) = do simData.insts += 1
-                                                     simData.cycles += (c - 1)
-                                                     execute i
+scalarExecute :: IssuedData -> ProcessorState ExecutedData
+scalarExecute (Nothing               ) = return Nothing
+scalarExecute (Just (Instruction c i)) = do simData.insts += 1
+                                            simData.cycles += (c - 1)
+                                            i' <- execute i
+                                            return . Just $ i'
 
-pipelinedExecute :: Maybe InstructionVal -> ProcessorState (Maybe (Register, Int32))
-pipelinedExecute input = do
-  s <- use $ executeStage.stalled
-  if s then do
-    simData.executeStalledCount += 1
-    latches <- use wrbInputLatches
-    return . head $ latches
-  else do
-    exeInputLatches .= []
-    output <- pipelinedExecute' input
-    executeStage.bypassValues .= (map fromJust . filter ((/=) Nothing)) output
-    return output
-  where pipelinedExecute' (Nothing               ) = return Nothing
-        pipelinedExecute' (Just (Instruction 1 i)) = do
+pipelinedExecute :: IssuedData -> ProcessorState (Either IssuedData ExecutedData)
+pipelinedExecute (Nothing               ) = return . Right $ Nothing
+pipelinedExecute (Just (Instruction 1 i)) = do
           simData.insts += 1
-          continueIssue
-          execute i
-        pipelinedExecute' (Just i) = do
-          let i' = fmap pred i
+          continueFetch
+          i' <- execute i
+          b  <- use $ options.bypassEnabled
+          if b then executeStage.bypassValues .= (Just . maybeToList) i'
+               else executeStage.bypassValues .= Nothing
+          return . Right . Just $ i'
+pipelinedExecute (Just i                ) = do
           stallIssue
-          exeInputLatches %= (++) [ Just i' ]
-          return Nothing
+          return . Left . Just . fmap pred $ i
 
-superscalarExecute :: [ Maybe InstructionVal ] -> ProcessorState [ Maybe (Register, Int32) ]
+superscalarExecute :: [ IssuedData ] -> ProcessorState [ ExecutedData ]
 superscalarExecute = undefined
 
 execute :: Inst Int32 -> ProcessorState (Maybe (Register, Int32))
