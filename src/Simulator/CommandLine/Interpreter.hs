@@ -80,12 +80,23 @@ interpret' step (Latches   ) = do dec <- use decInputLatches
                                               $ [ show dec, show iss, show exe, show wrb ]
                                       arrow   = replicate (max_len `div` 2) ' ' ++ "^"
                                   liftIO . putStrLn $ "WRB: " ++ show wrb
+                                  writebackStalled <- use $ writebackStage.isStalled
+                                  liftIO . putStrLn $ "WRB STALLED: " ++ show writebackStalled
                                   liftIO . putStrLn $ arrow
                                   liftIO . putStrLn $ "EXE: " ++ show exe
+                                  executeStalled <- use $ executeStage.isStalled
+                                  liftIO . putStrLn $ "EXE STALLED: " ++ show executeStalled
                                   liftIO . putStrLn $ arrow
                                   liftIO . putStrLn $ "ISS: " ++ show iss
+                                  issueStalled <- use $ issueStage.isStalled
+                                  liftIO . putStrLn $ "ISS STALLED: " ++ show issueStalled
                                   liftIO . putStrLn $ arrow
                                   liftIO . putStrLn $ "DEC: " ++ show dec
+                                  decodeStalled <- use $ decodeStage.isStalled
+                                  liftIO . putStrLn $ "DEC STALLED: " ++ show decodeStalled
+                                  liftIO . putStrLn $ arrow
+                                  fetchStalled <- use $ fetchStage.isStalled
+                                  liftIO . putStrLn $ "FET STALLED: " ++ show fetchStalled
 interpret' step (Quit      ) = liftIO exitSuccess
 
 setInstCycles :: String -> Int -> ProcessorState ()

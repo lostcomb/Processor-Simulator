@@ -1,6 +1,10 @@
+{-# LANGUAGE TemplateHaskell,
+             MultiParamTypeClasses,
+             FunctionalDependencies,
+             FlexibleInstances,
+             RankNTypes #-}
 module Simulator.Data.Simdata
-  ( Simdata(..)
-  , newSimdata
+  ( module Simulator.Data.Simdata
   ) where
 
 import Control.Lens
@@ -26,6 +30,9 @@ data Simdata = Simdata
   -- during execution.
   , _outOfOrderPerCycle    :: [ Int ]
   }
+
+-- Let Template Haskell make the lenses for Simdata.
+makeLenses ''Simdata
 
 newSimdata :: Simdata
 newSimdata = Simdata

@@ -5,14 +5,11 @@
              RankNTypes #-}
 module Simulator.Data.Processor
   ( module Simulator.Data.Processor
+  , module Simulator.Data.Stall
+  , module Simulator.Data.Stage
   , module Simulator.Data.Simdata
   , module Simulator.Data.Registers
   , module Simulator.Data.Instruction
-  , module Simulator.Data.Stage.Fetch
-  , module Simulator.Data.Stage.Decode
-  , module Simulator.Data.Stage.Issue
-  , module Simulator.Data.Stage.Execute
-  , module Simulator.Data.Stage.Writeback
   ) where
 
 import Data.Int
@@ -24,28 +21,11 @@ import qualified Data.Sequence as Seq
 import Control.Lens
 import Control.Monad.State
 
+import Simulator.Data.Stall
+import Simulator.Data.Stage
 import Simulator.Data.Simdata
 import Simulator.Data.Registers
 import Simulator.Data.Instruction
-import Simulator.Data.Stage.Fetch
-import Simulator.Data.Stage.Decode
-import Simulator.Data.Stage.Issue
-import Simulator.Data.Stage.Execute
-import Simulator.Data.Stage.Writeback
-
--- Define types for memories.
-type InstMem = Seq Word8
-type DataMem = Map Word32 Word8
-
--- Let Template Haskell make the lenses for the stages.
-makeFields ''Fetch
-makeFields ''Decode
-makeFields ''Issue
-makeFields ''Execute
-makeFields ''Writeback
-
--- Let Template Haskell make the lenses for Simdata.
-makeLenses ''Simdata
 
 data Type = Scalar
           | Pipelined
@@ -78,6 +58,10 @@ type FetchedData  = Maybe (Word8, Word8, Word8, Word8)
 type DecodedData  = Maybe InstructionReg
 type IssuedData   = Maybe InstructionVal
 type ExecutedData = Maybe (Maybe (Register, Int32))
+
+-- Define types for memories.
+type InstMem = Seq Word8
+type DataMem = Map Word32 Word8
 
 -- |This data type contains all of the processors state.
 data Processor = Processor

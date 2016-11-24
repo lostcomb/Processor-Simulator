@@ -3,14 +3,16 @@ module Simulator.Data.Stage.Decode
   , newDecode
   ) where
 
+import Simulator.Data.Stall
+
 data Decode = Decode
-  { _decodeStalled     :: Bool
+  { _decodeStalled     :: Stalled
   , _decodeSpeculative :: Bool
   }
   deriving (Show, Eq, Read)
 
 newDecode :: Decode
 newDecode = Decode
-  { _decodeStalled     = False
+  { _decodeStalled     = newStalled
   , _decodeSpeculative = False
   }

@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 module Simulator.Simulator
   ( runProcessor
   ) where
@@ -46,35 +47,35 @@ scalarProcessor
 
 pipelinedProcessor :: ProcessorState ()
 pipelinedProcessor
-  = do -- Set all latches to Nothing if the pipeline is to be invalidated.
-       checkForInvalidation
-       -- Get the value of the latches after the previous cycle.
+  = do -- Get the value of the latches after the previous cycle.
        (Left d) <- use decInputLatches
        (Left i) <- use issInputLatches
        (Left e) <- use exeInputLatches
        (Left w) <- use wrbInputLatches
-       -- Execute the Fetch stage unless it is stalled.
-       unless (fetchStage.stalled) $ do
-         f' <- pipelinedFetch
-         decInputLatches .= Left f'
-       -- Execute the Decode stage unless it is stalled.
-       unless (decodeStage.stalled) $ do
-         d' <- pipelinedDecode d
-         issInputLatches .= Left d'
-       -- Execute the Issue stage unless it is stalled.
-       unless (issueStage.stalled) $ do
-         i' <- pipelinedIssue i
-         exeInputLatches .= Left i'
+       -- Execute the Writeback stage unless it is stalled.
+       unless (writebackStage.isStalled) $ do
+         pipelinedWriteback w
        -- Execute the Execute stage unless it is stalled.
-       unless (executeStage.stalled) $ do
+       unless (executeStage.isStalled) $ do
          e' <- pipelinedExecute e
          case e' of
            (Left    issuedData) -> do exeInputLatches .= Left issuedData
                                       wrbInputLatches .= Left Nothing
            (Right executedData) -> do wrbInputLatches .= Left executedData
-       -- Execute the Writeback stage unless it is stalled.
-       unless (writebackStage.stalled) $ do
-         pipelinedWriteback w
+       -- Execute the Issue stage unless it is stalled.
+       unless (issueStage.isStalled) $ do
+         i' <- pipelinedIssue i
+         exeInputLatches .= Left i'
+       -- Execute the Decode stage unless it is stalled.
+       unless (decodeStage.isStalled) $ do
+         d' <- pipelinedDecode d
+         issInputLatches .= Left d'
+       -- Execute the Fetch stage unless it is stalled.
+       unless (fetchStage.isStalled) $ do
+         f' <- pipelinedFetch
+         decInputLatches .= Left f'
+       -- Set all latches to Nothing if the pipeline is to be invalidated.
+       checkForInvalidation
        -- Increment the number of cycles executed.
        simData.cycles += 1
   where checkForInvalidation = do
@@ -85,8 +86,10 @@ pipelinedProcessor
             exeInputLatches .= Left Nothing
             wrbInputLatches .= Left Nothing
             invalidate      .= False
+        unless :: Lens' Processor Bool -> ProcessorState () -> ProcessorState ()
         unless cond m = do b <- use cond
-                           if not b then do m
+                           i <- use invalidate
+                           if not b && not i then m
                            else return ()
 
 superscalarProcessor :: ProcessorState ()

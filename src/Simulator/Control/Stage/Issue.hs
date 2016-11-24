@@ -10,7 +10,6 @@ import Control.Lens
 import Control.Monad.State
 
 import Simulator.Data.Processor
-import Simulator.Control.Stall
 
 scalarIssue :: DecodedData -> ProcessorState IssuedData
 scalarIssue (Nothing               ) = return Nothing
@@ -23,10 +22,12 @@ pipelinedIssue (Just (Instruction c i)) = do
           bs <- use $ executeStage.bypassValues
           d  <- checkForDependency i bs
           if d then do
-            stallFetch
+            fetchStage.stalled.byIssue .= True
+            decodeStage.stalled.byIssue .= True
             return Nothing
           else do
-            continueFetch
+            fetchStage.stalled.byIssue .= False
+            decodeStage.stalled.byIssue .= False
             i' <- fillInsts i bs
             return . Just . Instruction c $ i'
 

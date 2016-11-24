@@ -4,13 +4,13 @@ module Simulator.Control.Stage.Fetch
   , superscalarFetch
   ) where
 
+import Data.Bits
 import Data.Word
 import Control.Lens
 import Control.Monad
 import Control.Monad.State
 
 import Simulator.Data.Processor
-import Simulator.Control.Stall
 
 scalarFetch :: ProcessorState FetchedData
 scalarFetch = fetch
@@ -28,4 +28,5 @@ fetch = do pc_val <- use $ fetchStage.programCounter
            i3 <- use $ instMem.item (fromIntegral (pc_val + 2))
            i4 <- use $ instMem.item (fromIntegral (pc_val + 3))
            fetchStage . programCounter += instLength
+           when ((i1 .&. 0xF0) `shiftR` 4 == 15) $ fetchStage.stalled.byFetch .= True
            return $ Just (i1, i2, i3, i4)

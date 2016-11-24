@@ -4,15 +4,16 @@ module Simulator.Data.Stage.Fetch
   ) where
 
 import Data.Word
+import Simulator.Data.Stall
 
 data Fetch = Fetch
-  { _fetchStalled        :: Bool
+  { _fetchStalled        :: Stalled
   , _fetchProgramCounter :: Word32
   }
   deriving (Show, Eq, Read)
 
 newFetch :: Fetch
 newFetch = Fetch
-  { _fetchStalled        = False
+  { _fetchStalled        = newStalled
   , _fetchProgramCounter = 0
   }

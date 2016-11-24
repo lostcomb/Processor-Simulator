@@ -10,7 +10,6 @@ import Control.Monad
 import Control.Monad.State
 
 import Simulator.Data.Processor
-import Simulator.Control.Stall
 
 scalarWriteback :: ExecutedData -> ProcessorState ()
 scalarWriteback = writeback
@@ -31,4 +30,8 @@ writeback (Just  d) = do regFile.regVal  pc += instLength
                              when (r == pc) $ do
                                fetchStage.programCounter .= fromIntegral v
                                invalidate .= True
+                               cleanRegisters
                            Nothing     -> return ()
+
+cleanRegisters :: ProcessorState ()
+cleanRegisters = mapM_ (\r -> regFile.regFlag r .= Clean) [(minBound::Register)..]

@@ -12,7 +12,6 @@ import Control.Monad
 import Control.Monad.State
 
 import Simulator.Data.Processor
-import Simulator.Control.Stall
 
 scalarExecute :: IssuedData -> ProcessorState ExecutedData
 scalarExecute (Nothing               ) = return Nothing
@@ -25,14 +24,18 @@ pipelinedExecute :: IssuedData -> ProcessorState (Either IssuedData ExecutedData
 pipelinedExecute (Nothing               ) = return . Right $ Nothing
 pipelinedExecute (Just (Instruction 1 i)) = do
           simData.insts += 1
-          continueIssue
+          fetchStage.stalled.byExecute .= False
+          decodeStage.stalled.byExecute .= False
+          issueStage.stalled.byExecute .= False
           i' <- execute i
           b  <- use $ options.bypassEnabled
           if b then executeStage.bypassValues .= (Just . maybeToList) i'
                else executeStage.bypassValues .= Nothing
           return . Right . Just $ i'
 pipelinedExecute (Just i                ) = do
-          stallIssue
+          fetchStage.stalled.byExecute .= True
+          decodeStage.stalled.byExecute .= True
+          issueStage.stalled.byExecute .= True
           return . Left . Just . fmap pred $ i
 
 superscalarExecute :: [ IssuedData ] -> ProcessorState [ ExecutedData ]

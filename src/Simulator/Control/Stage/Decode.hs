@@ -11,7 +11,6 @@ import Control.Lens
 import Control.Monad.State
 
 import Simulator.Data.Processor
-import Simulator.Control.Stall
 
 scalarDecode :: FetchedData -> ProcessorState DecodedData
 scalarDecode = decode
