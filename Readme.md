@@ -4,7 +4,6 @@
 
 ## TODO: ##
 
-* Implement proper stalling logic.
 * Implement sub pipeline in the EU.
 * Implement re-order buffer.
 * Implement out-of-order scheduling.

@@ -47,7 +47,9 @@ scalarProcessor
 
 pipelinedProcessor :: ProcessorState ()
 pipelinedProcessor
-  = do -- Get the value of the latches after the previous cycle.
+  = do -- Update the stall counts.
+       updateStallCounts
+       -- Get the value of the latches after the previous cycle.
        (Left d) <- use decInputLatches
        (Left i) <- use issInputLatches
        (Left e) <- use exeInputLatches
@@ -78,7 +80,8 @@ pipelinedProcessor
        checkForInvalidation
        -- Increment the number of cycles executed.
        simData.cycles += 1
-  where checkForInvalidation = do
+  where checkForInvalidation :: ProcessorState ()
+        checkForInvalidation = do
           i <- use invalidate
           when i $ do
             decInputLatches .= Left Nothing
@@ -91,6 +94,18 @@ pipelinedProcessor
                            i <- use invalidate
                            if not b && not i then m
                            else return ()
+        updateStallCounts :: ProcessorState ()
+        updateStallCounts = do
+          f <- use $ fetchStage.isStalled
+          when f $ simData.fetchStalledCount     += 1
+          d <- use $ decodeStage.isStalled
+          when d $ simData.decodeStalledCount    += 1
+          i <- use $ issueStage.isStalled
+          when i $ simData.issueStalledCount     += 1
+          e <- use $ executeStage.isStalled
+          when e $ simData.executeStalledCount   += 1
+          w <- use $ writebackStage.isStalled
+          when w $ simData.writebackStalledCount += 1
 
 superscalarProcessor :: ProcessorState ()
 superscalarProcessor = undefined
