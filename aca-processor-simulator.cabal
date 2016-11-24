@@ -28,6 +28,7 @@ executable aca-processor-simulator
                        Simulator,
                        Simulator.Simulator,
                        Simulator.Data.Stall,
+                       Simulator.Data.Stage,
                        Simulator.Data.Instruction,
                        Simulator.Data.Processor,
                        Simulator.Data.Registers,

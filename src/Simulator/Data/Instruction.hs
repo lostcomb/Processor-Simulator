@@ -39,11 +39,19 @@ data Inst t where
 -- |This data type adds an extra parameter to the Inst type. This can be used
 --  to make instructions take more than one cycle.
 data Instruction t c = Instruction c (Inst t)
-  deriving (Show, Eq, Read)
+  deriving (Show, Read)
 
--- |This instance allows mapping over the extra value in the Instruction type.
+-- |This instance allows fmapping over the extra value in the Instruction type.
 instance Functor (Instruction t) where
   fmap f (Instruction c i) = (Instruction (f c) i)
+
+-- |This instance allows us to order instructions.
+instance (Eq c) => Eq (Instruction t c) where
+  (Instruction a _) == (Instruction b _) = a == b
+
+-- |This instance allows us to order instructions.
+instance (Ord c) => Ord (Instruction t c) where
+  compare (Instruction a _) (Instruction b _) = compare a b
 
 -- |This function maps each intruction to a number of cycles it takes to complete.
 --  Instruction timings taken from here: http://www.agner.org/optimize/instruction_tables.pdf
