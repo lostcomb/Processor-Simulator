@@ -56,7 +56,7 @@ defaultOptions = Options
 -- |These types correspond to the types of the output data for each stage.
 type FetchedData  = Maybe (Word8, Word8, Word8, Word8)
 type DecodedData  = Maybe InstructionReg
-type IssuedData   = Maybe InstructionVal
+type IssuedData   = Maybe (InstructionVal, [ Register ])
 type ExecutedData = Maybe (Maybe (Register, Int32))
 
 -- Define types for memories.
@@ -94,7 +94,7 @@ newProcessor insts opts = Processor
   , _issInputLatches = latches (_procType opts)
   , _issueStage      = newIssue
   , _exeInputLatches = latches (_procType opts)
-  , _executeStage    = newExecute (_pipelinedEUs opts)
+  , _executeStage    = newExecute
   , _wrbInputLatches = latches (_procType opts)
   , _writebackStage  = newWriteback
   , _invalidate      = False

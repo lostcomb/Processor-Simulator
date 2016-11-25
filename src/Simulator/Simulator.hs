@@ -84,11 +84,12 @@ pipelinedProcessor
         checkForInvalidation = do
           i <- use invalidate
           when i $ do
-            decInputLatches .= Left Nothing
-            issInputLatches .= Left Nothing
-            exeInputLatches .= Left Nothing
-            wrbInputLatches .= Left Nothing
-            invalidate      .= False
+            decInputLatches          .= Left Nothing
+            issInputLatches          .= Left Nothing
+            exeInputLatches          .= Left Nothing
+            executeStage.subPipeline .= []
+            wrbInputLatches          .= Left Nothing
+            invalidate               .= False
         unless :: Lens' Processor Bool -> ProcessorState () -> ProcessorState ()
         unless cond m = do b <- use cond
                            i <- use invalidate

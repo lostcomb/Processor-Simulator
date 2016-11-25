@@ -4,7 +4,6 @@
 
 ## TODO: ##
 
-* Implement sub pipeline in the EU.
 * Implement re-order buffer.
 * Implement out-of-order scheduling.
 * Implement branch prediction.

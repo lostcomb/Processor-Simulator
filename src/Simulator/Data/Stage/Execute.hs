@@ -11,15 +11,13 @@ import Simulator.Data.Instruction
 data Execute = Execute
   { _executeStalled      :: Stalled
   , _executeBypassValues :: Maybe [ (Register, Int32) ]
-  , _executeSubPipeline  :: Maybe [ InstructionVal ]
+  , _executeSubPipeline  :: [ (InstructionVal, [ Register ]) ]
   }
   deriving (Show, Eq, Read)
 
-newExecute :: Bool -> Execute
-newExecute sub_pipeline = Execute
+newExecute :: Execute
+newExecute = Execute
   { _executeStalled      = newStalled
   , _executeBypassValues = Nothing
-  , _executeSubPipeline  = if sub_pipeline
-                             then Just []
-                             else Nothing
+  , _executeSubPipeline  = []
   }

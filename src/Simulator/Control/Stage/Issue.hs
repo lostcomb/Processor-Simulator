@@ -14,7 +14,7 @@ import Simulator.Data.Processor
 scalarIssue :: DecodedData -> ProcessorState IssuedData
 scalarIssue (Nothing               ) = return Nothing
 scalarIssue (Just (Instruction c i)) = do i' <- fillInsts i Nothing
-                                          return . Just . Instruction c $ i'
+                                          return . Just $ (Instruction c i', instOperands i)
 
 pipelinedIssue :: DecodedData -> ProcessorState IssuedData
 pipelinedIssue (Nothing               ) = return Nothing
@@ -22,6 +22,7 @@ pipelinedIssue (Just (Instruction c i)) = do
           bs <- use $ executeStage.bypassValues
           d  <- checkForDependency i bs
           if d then do
+            simData.issueStalledCount += 1
             fetchStage.stalled.byIssue .= True
             decodeStage.stalled.byIssue .= True
             return Nothing
@@ -29,7 +30,7 @@ pipelinedIssue (Just (Instruction c i)) = do
             fetchStage.stalled.byIssue .= False
             decodeStage.stalled.byIssue .= False
             i' <- fillInsts i bs
-            return . Just . Instruction c $ i'
+            return . Just $ (Instruction c i', instOperands i)
 
 superscalarIssue :: [ DecodedData ] -> ProcessorState [ IssuedData ]
 superscalarIssue = undefined

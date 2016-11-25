@@ -14,54 +14,65 @@ import Control.Monad.State
 import Simulator.Data.Processor
 
 scalarExecute :: IssuedData -> ProcessorState ExecutedData
-scalarExecute (Nothing               ) = return Nothing
-scalarExecute (Just (Instruction c i)) = do simData.insts += 1
-                                            simData.cycles += (c - 1)
-                                            i' <- execute i
-                                            return . Just $ i'
+scalarExecute (Nothing                  ) = return Nothing
+scalarExecute (Just (Instruction c i, _)) = do simData.insts += 1
+                                               simData.cycles += (c - 1)
+                                               i' <- execute i
+                                               return . Just $ i'
 
 pipelinedExecute :: IssuedData -> ProcessorState (Either IssuedData ExecutedData)
-pipelinedExecute i = do ps <- use $ executeStage.subPipeline
-                        pipelinedExecute' i ps
-  where pipelinedExecute' (Nothing               ) (Nothing) =
-          return . Right $ Nothing
-        pipelinedExecute' (Just (Instruction c i)) (Nothing)
-          | c <= 1    = do simData.insts += 1
-                           fetchStage.stalled.byExecute .= False
-                           decodeStage.stalled.byExecute .= False
-                           issueStage.stalled.byExecute .= False
-                           i' <- execute i
-                           b  <- use $ options.bypassEnabled
-                           if b then executeStage.bypassValues .= (Just . maybeToList) i'
-                                else executeStage.bypassValues .= Nothing
-                           return . Right . Just $ i'
-          | otherwise = do fetchStage.stalled.byExecute .= True
-                           decodeStage.stalled.byExecute .= True
-                           issueStage.stalled.byExecute .= True
-                           return . Left . Just . fmap pred $ (Instruction c i)
-        pipelinedExecute' m_inst (Just ps) = do
-          let ps' = map (fmap pred) $ case m_inst of
-                (Just inst) -> (inst : ps)
-                (Nothing  ) -> ps
-          case ps' of
-            []  -> return . Right $ Nothing
-            ps' -> do
-              let (Instruction c i) = minimum ps'
-              if c <= 1 then do
-                simData.insts += 1
-                executeStage.subPipeline .= Just (filter (\(Instruction _ is) -> i /= is) ps')
-                i' <- execute i
-                b  <- use $ options.bypassEnabled
-                if b then executeStage.bypassValues .= (Just . maybeToList) i'
-                     else executeStage.bypassValues .= Nothing
-                return . Right . Just $ i'
-              else do
-                executeStage.subPipeline .= Just ps'
-                b <- use $ options.bypassEnabled
-                if b then executeStage.bypassValues .= Just []
-                     else executeStage.bypassValues .= Nothing
-                return . Right $ Nothing
+pipelinedExecute i = do
+  p <- use $ options.pipelinedEUs
+  if p then do
+    ps <- use $ executeStage.subPipeline
+    subPipelinedExecute i ps
+  else do
+    pipelinedExecute' i
 
+pipelinedExecute' :: IssuedData -> ProcessorState (Either IssuedData ExecutedData)
+pipelinedExecute' (Nothing                  ) = return . Right $ Nothing
+pipelinedExecute' (Just (Instruction 1 i, _)) = do
+  simData.insts += 1
+  fetchStage.stalled.byExecute .= False
+  decodeStage.stalled.byExecute .= False
+  issueStage.stalled.byExecute .= False
+  i' <- execute i
+  b  <- use $ options.bypassEnabled
+  if b then executeStage.bypassValues .= (Just . maybeToList) i'
+       else executeStage.bypassValues .= Nothing
+  return . Right . Just $ i'
+pipelinedExecute' (Just              (i, rs)) = do
+  fetchStage.stalled.byExecute .= True
+  decodeStage.stalled.byExecute .= True
+  issueStage.stalled.byExecute .= True
+  return . Left . Just $ (fmap pred i, rs)
+
+subPipelinedExecute :: IssuedData -> [ (InstructionVal, [ Register ]) ]
+                    -> ProcessorState (Either IssuedData ExecutedData)
+subPipelinedExecute m_inst ps = do
+  let ps' = map (\(i, r) -> (fmap pred i, r)) $ maybeToList m_inst ++ ps
+  case findInst ps' of
+    Nothing        -> return . Right $ Nothing
+    Just (Left  (i, rs)) -> do
+      executeStage.subPipeline .= ps'
+      b <- use $ options.bypassEnabled
+      if b then executeStage.bypassValues .= Just []
+           else executeStage.bypassValues .= Nothing
+      return . Right $ Nothing
+    Just (Right (i, rs)) -> do
+      simData.insts += 1
+      let ps'' = filter (\(Instruction _ is, _) -> i /= is) ps'
+      executeStage.subPipeline .= ps''
+      i' <- execute i
+      b  <- use $ options.bypassEnabled
+      let d = or . map (usesRegister i' . snd) $ ps''
+      if b && not d then executeStage.bypassValues .= (Just . maybeToList) i'
+                    else executeStage.bypassValues .= Nothing
+      return . Right . Just $ i'
+  where findInst [] = Nothing
+        findInst ps = let (Instruction c i, rs) = minimum ps in
+                      if c > 1 then Just . Left  $ (i, rs)
+                               else Just . Right $ (i, rs)
 
 superscalarExecute :: [ IssuedData ] -> ProcessorState [ ExecutedData ]
 superscalarExecute = undefined

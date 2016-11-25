@@ -12,7 +12,7 @@ instLength = 4
 
 -- |This defines the type for Instructions whose registers have been swapped
 --  out for their values.
-type InstructionVal = Instruction Int32    Int
+type InstructionVal = Instruction Int32 Int
 -- |This defines the type for Instructions whose registers are symbolic values.
 type InstructionReg = Instruction Register Int
 
@@ -35,6 +35,33 @@ data Inst t where
   Stm  ::             t -> t          -> Inst t
   Halt ::                                Inst t
   deriving (Show, Eq, Read)
+
+-- |This function returns true if the specified register is in the specified
+--  list of registers.
+usesRegister :: Maybe (Register, Int32) -> [ Register ] -> Bool
+usesRegister (Nothing    ) _  = False
+usesRegister (Just (r, _)) rs = elem r rs
+
+-- |This function returns the list of registers the specified instruction uses
+--  as operands.
+instOperands :: Inst Register -> [ Register ]
+instOperands i = case i of
+  (Nop        ) -> []
+  (Add _ ri rj) -> [ ri, rj ]
+  (Sub _ ri rj) -> [ ri, rj ]
+  (Mul _ ri rj) -> [ ri, rj ]
+  (Div _ ri rj) -> [ ri, rj ]
+  (And _ ri rj) -> [ ri, rj ]
+  (Or  _ ri rj) -> [ ri, rj ]
+  (Not _ ri   ) -> [ ri ]
+  (Jmp   ri   ) -> [ ri ]
+  (Bez   ri  _) -> [ ri ]
+  (Ceq _ ri rj) -> [ ri, rj ]
+  (Cgt _ ri rj) -> [ ri, rj ]
+  (Ldc _     _) -> []
+  (Ldm _ ri   ) -> [ ri ]
+  (Stm   ri rj) -> [ ri, rj ]
+  (Halt       ) -> []
 
 -- |This data type adds an extra parameter to the Inst type. This can be used
 --  to make instructions take more than one cycle.
