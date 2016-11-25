@@ -160,8 +160,10 @@ printRegisters = do let groups = chunksOf 4 [(minBound::Register)..]
                           padding = replicate (16 - length r_s - length v_s) ' '
                       liftIO $ putStr $ " " ++ r_s ++ padding ++ v_s ++ " "
         flagToString :: Flag -> String
-        flagToString Clean = "c"
-        flagToString Dirty = "d"
+        flagToString c
+          | c == 0    = "c"
+          | c >  0    = "d"
+          | otherwise = "u"
 
 printMemory :: ProcessorState ()
 printMemory = do mem <- use $ dataMem

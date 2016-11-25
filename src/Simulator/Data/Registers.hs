@@ -6,6 +6,9 @@ module Simulator.Data.Registers
 import Data.Int
 import Control.Lens
 
+-- |This type defines a flag to determine whether a register is clean or dirty.
+--  Flag == 0 means clean, Flag > 0 means dirty, Flag < 0 is undefined.
+type Flag = Int
 -- |This type defines a register file for the processor.
 type RegisterFile = [ (Register, (Int32, Flag)) ]
 
@@ -33,16 +36,24 @@ data Register
 pc :: Register
 pc = R0
 
--- |This defines the flags a register in the register file can have. It can be
---  used to indicate a registers value is in the process of being updated.
-data Flag = Clean
-          | Dirty
-  deriving (Show, Eq, Read)
+-- |This defines a clean register flag.
+clean :: Flag
+clean = 0
+
+-- |This function returns true if the specified register flag @f@ represents a
+--  clean register.
+isClean :: Flag -> Bool
+isClean f = f == clean
+
+-- |This function returns true if the specified register flag @f@ represents a
+--  dirty register.
+isDirty :: Flag -> Bool
+isDirty f = f /= clean
 
 -- |This defines a new register file using all of the registers defined by
 --  Register.
 newRegFile :: RegisterFile
-newRegFile = zip [(minBound :: Register)..] (repeat (0, Clean))
+newRegFile = zip [(minBound :: Register)..] (repeat (0, clean))
 
 -- |This lens provides a getter and setter for the register values in the
 --  register file.

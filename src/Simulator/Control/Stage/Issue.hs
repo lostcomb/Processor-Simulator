@@ -56,7 +56,7 @@ checkForDependency i bypass = case i of
   where check :: Register -> ProcessorState Bool
         check r = do f <- use (regFile.regFlag r)
                      let b = lookup r . fromMaybe [] $ bypass
-                     return $ f == Dirty && b == Nothing
+                     return $ isDirty f && b == Nothing
 
 fillInsts :: Inst Register -> Maybe [ (Register, Int32) ] -> ProcessorState (Inst Int32)
 fillInsts i bypass = case i of
@@ -77,7 +77,7 @@ fillInsts i bypass = case i of
   (Stm    ri rj) -> Stm <$>                 updateReg ri <*> updateReg rj
   (Halt        ) -> return Halt
   where stainReg :: Register -> ProcessorState Register
-        stainReg  r = do regFile.regFlag r .= Dirty
+        stainReg  r = do regFile.regFlag r += 1
                          return r
         updateReg :: Register -> ProcessorState Int32
         updateReg r = do val <- use $ regFile.regVal r

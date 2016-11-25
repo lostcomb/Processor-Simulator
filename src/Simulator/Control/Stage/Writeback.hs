@@ -26,7 +26,7 @@ writeback (Just  d) = do regFile.regVal  pc += instLength
                          case d of
                            Just (r, v) -> do
                              regFile.regVal  r  .= v
-                             regFile.regFlag r  .= Clean
+                             regFile.regFlag r  -= 1
                              when (r == pc) $ do
                                fetchStage.programCounter .= fromIntegral v
                                invalidate .= True
@@ -34,4 +34,4 @@ writeback (Just  d) = do regFile.regVal  pc += instLength
                            Nothing     -> return ()
 
 cleanRegisters :: ProcessorState ()
-cleanRegisters = mapM_ (\r -> regFile.regFlag r .= Clean) [(minBound::Register)..]
+cleanRegisters = mapM_ (\r -> regFile.regFlag r .= clean) [(minBound::Register)..]
