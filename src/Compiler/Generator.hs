@@ -14,7 +14,8 @@ generate prog = evalState (generate' prog) newGenerator
 
 -- |This functions generates @prog@.
 generate' :: Program -> State Generator [ Instruction ]
-generate' (main:funcs) = do mapM addFunction funcs
+generate' (main:funcs) = do addInst $ LDC sp (Left 0)
+                            mapM addFunction funcs
                             genMain main
                             mapM genFunction funcs
                             addInst $ LABEL "_end"
@@ -74,7 +75,7 @@ genStatement (Assignment (Var i) e)
 
 genStatement (Assignment (Arr i index) e)
   = do r1 <- genExpr e
-       r2 <- genExpr index
+       r2 <- genExpr (Mul (Const 4) index)
        r3 <- getRegister
        offset <- getOffset (Arr i index)
        case offset of

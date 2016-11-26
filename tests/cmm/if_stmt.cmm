@@ -1,0 +1,8 @@
+void main (void) {
+  int i;
+  if (true) i = 1;
+  else i = 2;
+  int j;
+  if (false) j = 1;
+  else j = 2;
+}

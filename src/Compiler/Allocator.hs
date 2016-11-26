@@ -14,6 +14,8 @@ import Control.Monad.State
 
 import Compiler.Instruction
 
+import Debug.Trace
+
 -- |These are the types used by the liveness analysis and graph colouring
 --  algorithm.
 type Colour     = Int
@@ -344,14 +346,16 @@ addNode n = do s <- get
                  else put $ s { graph = Graph (n:ns) es }
 
 -- |This function returns the node associated with the specified register.
-getNode :: Register -> State Allocator Node
+getNode :: Register -> State Allocator (Maybe Node)
 getNode r = do ns <- getNodes
-               return . head . filter (\(Node reg _) -> reg == r) $ ns
+               return . listToMaybe . filter (\(Node reg _) -> reg == r) $ ns
 
 -- |This function returns the colour associated with the specified register.
 getNodeColour :: Register -> State Allocator Colour
-getNodeColour r = do (Node _ c) <- getNode r
-                     return c
+getNodeColour r = do n <- getNode r
+                     case n of
+                       Just (Node _ c) -> return c
+                       Nothing         -> return r
 
 -- |This function returns all nodes in the register interference graph.
 getNodes :: State Allocator [ Node ]
