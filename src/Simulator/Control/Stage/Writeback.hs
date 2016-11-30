@@ -24,10 +24,10 @@ writeback :: ExecutedData -> ProcessorState ()
 writeback (Nothing) = return ()
 writeback (Just  d) = do regFile.regVal  pc += instLength
                          case d of
-                           Just (r, v) -> do
+                           Just (r, v, inv) -> do
                              regFile.regVal  r  .= v
                              regFile.regFlag r  -= 1
-                             when (r == pc) $ do
+                             when inv $ do
                                fetchStage.programCounter .= fromIntegral v
                                invalidate .= True
                                cleanRegisters

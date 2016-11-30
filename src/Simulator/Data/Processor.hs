@@ -32,32 +32,39 @@ data Type = Scalar
           | Superscalar
           deriving (Show, Eq, Read)
 
+data BranchPrediction = Static
+                      | Saturating
+                      | TwoLevel
+                      deriving (Show, Eq, Read)
+
 data Options = Options
-  { _procType        :: Type
-  , _bypassEnabled   :: Bool
-  , _pipelinedEUs    :: Bool
-  , _noEUs           :: Int
-  , _noInstsPerCycle :: Int
-  , help             :: Bool
+  { _procType         :: Type
+  , _bypassEnabled    :: Bool
+  , _pipelinedEUs     :: Bool
+  , _branchPrediction :: BranchPrediction
+  , _noEUs            :: Int
+  , _noInstsPerCycle  :: Int
+  , help              :: Bool
   }
 -- Let Template Haskell make the lenses.
 makeLenses ''Options
 
 defaultOptions :: Options
 defaultOptions = Options
-  { _procType        = Scalar
-  , _bypassEnabled   = False
-  , _pipelinedEUs    = False
-  , _noEUs           = 1
-  , _noInstsPerCycle = 1
-  , help             = False
+  { _procType         = Scalar
+  , _bypassEnabled    = False
+  , _pipelinedEUs     = False
+  , _branchPrediction = Static
+  , _noEUs            = 1
+  , _noInstsPerCycle  = 1
+  , help              = False
   }
 
 -- |These types correspond to the types of the output data for each stage.
-type FetchedData  = Maybe (Word8, Word8, Word8, Word8)
+type FetchedData  = Maybe (Word8, Word8, Word8, Word8, Control)
 type DecodedData  = Maybe InstructionReg
 type IssuedData   = Maybe (InstructionVal, [ Register ])
-type ExecutedData = Maybe (Maybe (Register, Int32))
+type ExecutedData = Maybe (Maybe (Register, Int32, Bool))
 
 -- Define types for memories.
 type InstMem = Seq Word8

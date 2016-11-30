@@ -12,13 +12,13 @@ import Control.Monad.State
 import Simulator.Data.Processor
 
 scalarIssue :: DecodedData -> ProcessorState IssuedData
-scalarIssue (Nothing               ) = return Nothing
-scalarIssue (Just (Instruction c i)) = do i' <- fillInsts i Nothing
-                                          return . Just $ (Instruction c i', instOperands i)
+scalarIssue (Nothing                  ) = return Nothing
+scalarIssue (Just (Instruction c i co)) = do i' <- fillInsts i Nothing
+                                             return . Just $ (Instruction c i' co, instOperands i)
 
 pipelinedIssue :: DecodedData -> ProcessorState IssuedData
-pipelinedIssue (Nothing               ) = return Nothing
-pipelinedIssue (Just (Instruction c i)) = do
+pipelinedIssue (Nothing                  ) = return Nothing
+pipelinedIssue (Just (Instruction c i co)) = do
           bs <- use $ executeStage.bypassValues
           d  <- checkForDependency i bs
           if d then do
@@ -30,7 +30,7 @@ pipelinedIssue (Just (Instruction c i)) = do
             fetchStage.stalled.byIssue .= False
             decodeStage.stalled.byIssue .= False
             i' <- fillInsts i bs
-            return . Just $ (Instruction c i', instOperands i)
+            return . Just $ (Instruction c i' co, instOperands i)
 
 superscalarIssue :: [ DecodedData ] -> ProcessorState [ IssuedData ]
 superscalarIssue = undefined

@@ -43,6 +43,7 @@ executable aca-processor-simulator
                        Simulator.Control.Stage.Fetch,
                        Simulator.Control.Stage.Issue,
                        Simulator.Control.Stage.Writeback,
+                       Simulator.Control.BranchPrediction,
                        Simulator.CommandLine.Command,
                        Simulator.CommandLine.Interpreter,
                        Simulator.CommandLine.Parser

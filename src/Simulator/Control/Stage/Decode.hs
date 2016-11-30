@@ -25,10 +25,10 @@ decode :: FetchedData -> ProcessorState DecodedData
 decode (Nothing) = return Nothing
 decode (Just  i) = do let inst = decodeInst i
                       cycles <- use $ instCycles
-                      return $ Just $ Instruction (cycles inst) inst
+                      return $ Just $ Instruction (cycles inst) inst (getControl i)
 
-decodeInst :: (Word8, Word8, Word8, Word8) -> Inst Register
-decodeInst (b1, b2, b3, b4) = case op_code of
+decodeInst :: (Word8, Word8, Word8, Word8, Control) -> Inst Register
+decodeInst (b1, b2, b3, b4, _) = case op_code of
   0  -> Nop
   1  -> Add (reg op1) (reg op2) (reg op3)
   2  -> Sub (reg op1) (reg op2) (reg op3)
@@ -52,6 +52,9 @@ decodeInst (b1, b2, b3, b4) = case op_code of
         b3_32     = (fromIntegral b3) :: Word32
         b4_32     = (fromIntegral b4) :: Word32
         imm       = fromIntegral $ (b3_32 `shiftL` 8) .|. b4_32
+
+getControl :: (a, a, a, a, Control) -> Control
+getControl (_, _, _, _, c) = c
 
 reg :: Word8 -> Register
 reg x = genericIndex [(minBound :: Register)..] x

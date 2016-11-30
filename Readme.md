@@ -4,11 +4,12 @@
 
 ## TODO: ##
 
+* Implement branch prediction.
 * Implement re-order buffer.
 * Implement out-of-order scheduling.
-* Implement branch prediction.
 * Implement multiple execution units.
 * Implement reservation stations.
+* Implement register re-naming.
 
 # ISA Reference: #
 

@@ -24,6 +24,9 @@ optionList
     , Option ['s'] ["sub_pipeline"]
       (NoArg (\opts -> opts { _pipelinedEUs = True }))
       "Enables sub pipelining in the processor."
+    , Option ['p'] ["branch_prediction"]
+      (ReqArg (\t opts -> opts { _branchPrediction = parseBranchPrediction t }) "(static|saturating|twolevel)")
+      "Sets the type of branch prediction to use, static (always not taken), saturating counter, two level adaptive."
     , Option ['f'] ["no_insts"]
       (ReqArg (\n opts -> opts { _noInstsPerCycle = (read n) }) "integer")
       "Sets the number of instructions to be fetched per cycle."
@@ -42,9 +45,9 @@ simulator_main args = case getOpt Permute optionList args of
                            then putStrLn $ usageInfo header optionList
                            else do input <- BS.readFile rp
                                    let prog = BS.unpack input
-                                   evalStateT (evalStateT runProcessor []) $ newProcessor prog opts--TODO: Update to allow user set params.
-  (   _,     _, errs) -> do putStrLn (concat errs ++ usageInfo header optionList)
-                            exitWith (ExitFailure 1)
+                                   evalStateT (evalStateT runProcessor []) $ newProcessor prog opts
+  (_,     _, errs) -> do putStrLn (concat errs ++ usageInfo header optionList)
+                         exitWith (ExitFailure 1)
 
 parseType :: String -> Type
 parseType "scalar"      = Scalar
@@ -52,8 +55,14 @@ parseType "pipelined"   = Pipelined
 parseType "superscalar" = Superscalar
 parseType _             = undefined
 
+parseBranchPrediction :: String -> BranchPrediction
+parseBranchPrediction "static"     = Static
+parseBranchPrediction "saturating" = Saturating
+parseBranchPrediction "twolevel"   = TwoLevel
+parseBranchPrediction _            = undefined
+
 header :: String
 header = "Usage: " ++ simulator_msg
 
 simulator_msg :: String
-simulator_msg = "simulate [-t (simple | pipelined | superscalar)] [-b] [-s] read_path.o"
+simulator_msg = "simulate [options (use --help to list)] read_path.o"
