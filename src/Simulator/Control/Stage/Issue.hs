@@ -68,8 +68,8 @@ fillInsts i bypass = case i of
   (And rd ri rj) -> And <$> stainReg rd <*> updateReg ri <*> updateReg rj
   (Or  rd ri rj) -> Or  <$> stainReg rd <*> updateReg ri <*> updateReg rj
   (Not rd ri   ) -> Not <$> stainReg rd <*> updateReg ri
-  (Jmp    ri   ) -> Jmp <$>                 updateReg ri
-  (Bez    ri  o) -> Bez <$>                 updateReg ri <*> return o
+  (Jmp    ri   ) -> Jmp <$  stainReg pc <*> updateReg ri
+  (Bez    ri  o) -> Bez <$  stainReg pc <*> updateReg ri <*> return o
   (Ceq rd ri rj) -> Ceq <$> stainReg rd <*> updateReg ri <*> updateReg rj
   (Cgt rd ri rj) -> Cgt <$> stainReg rd <*> updateReg ri <*> updateReg rj
   (Ldc rd     o) -> Ldc <$> stainReg rd                  <*> return o

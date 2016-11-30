@@ -10,6 +10,7 @@ module Simulator.Data.Processor
   , module Simulator.Data.Simdata
   , module Simulator.Data.Registers
   , module Simulator.Data.Instruction
+  , module Simulator.Data.BTAC
   ) where
 
 import Data.Int
@@ -26,6 +27,7 @@ import Simulator.Data.Stage
 import Simulator.Data.Simdata
 import Simulator.Data.Registers
 import Simulator.Data.Instruction
+import Simulator.Data.BTAC
 
 data Type = Scalar
           | Pipelined
@@ -64,7 +66,7 @@ defaultOptions = Options
 type FetchedData  = Maybe (Word8, Word8, Word8, Word8, Control)
 type DecodedData  = Maybe InstructionReg
 type IssuedData   = Maybe (InstructionVal, [ Register ])
-type ExecutedData = Maybe (Maybe (Register, Int32, Bool))
+type ExecutedData = Maybe (Maybe (Register, Int32), Bool)
 
 -- Define types for memories.
 type InstMem = Seq Word8
@@ -82,6 +84,7 @@ data Processor = Processor
   , _wrbInputLatches :: Either ExecutedData [ ExecutedData ]
   , _writebackStage  :: Writeback
   , _invalidate      :: Bool
+  , _btac            :: BTAC
   , _instMem         :: InstMem
   , _dataMem         :: DataMem
   , _regFile         :: RegisterFile
@@ -105,6 +108,7 @@ newProcessor insts opts = Processor
   , _wrbInputLatches = latches (_procType opts)
   , _writebackStage  = newWriteback
   , _invalidate      = False
+  , _btac            = newBTAC
   , _instMem         = Seq.fromList insts
   , _dataMem         = Map.empty
   , _regFile         = newRegFile

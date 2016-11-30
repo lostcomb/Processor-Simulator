@@ -21,7 +21,8 @@ languageDef = emptyDef
                     , "decodei"   , "issuei"
                     , "executei"  , "writebacki"
                     , "set"       , "get"
-                    , "latches"   , "quit"
+                    , "latches"   , "caches"
+                    , "quit"
                     ]
   }
 
@@ -57,6 +58,7 @@ commandsParser = commandParser `sepBy` semi lexer
 --        |   'set' <instruction_id> <integer>
 --        |   'get' <instruction_id>
 --        |   'latches'
+--        |   'caches'
 --        |   'quit'
 commandParser :: Parser Command
 commandParser =   (Step       <$  reserved lexer "step"
@@ -76,4 +78,5 @@ commandParser =   (Step       <$  reserved lexer "step"
               <|> (Get        <$  reserved lexer "get"
                               <*> identifier lexer                         )
               <|> (Latches    <$  reserved lexer "latches"                 )
+              <|> (Caches     <$  reserved lexer "caches"                  )
               <|> (Quit       <$  reserved lexer "quit"                    )

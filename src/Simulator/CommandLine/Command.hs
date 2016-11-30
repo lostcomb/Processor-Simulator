@@ -15,5 +15,6 @@ data Command = Step Int
              | Set String Int
              | Get String
              | Latches
+             | Caches
              | Quit
              deriving (Show, Eq, Read)

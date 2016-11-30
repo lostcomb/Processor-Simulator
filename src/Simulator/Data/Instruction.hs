@@ -5,6 +5,7 @@ module Simulator.Data.Instruction
 
 import Data.Int
 import Data.Word
+import Simulator.Data.BTAC
 import Simulator.Data.Registers
 
 -- |This defines the length of an instruction in bytes.
@@ -39,9 +40,9 @@ data Inst t where
 
 -- |This function returns true if the specified register is in the specified
 --  list of registers.
-usesRegister :: Maybe (Register, Int32, Bool) -> [ Register ] -> Bool
-usesRegister (Nothing       ) _  = False
-usesRegister (Just (r, _, _)) rs = elem r rs
+usesRegister :: Maybe (Register, Int32) -> [ Register ] -> Bool
+usesRegister (Nothing    ) _  = False
+usesRegister (Just (r, _)) rs = elem r rs
 
 -- |This function returns the list of registers the specified instruction uses
 --  as operands.
@@ -68,42 +69,6 @@ instOperands i = case i of
 --  to make instructions take more than one cycle.
 data Instruction t c = Instruction c (Inst t) Control
   deriving (Show, Read)
-
--- |This data type defines the control type of an instruction. If the
---  instruction isn't a branch instruction, then its control is NA. If the
---  instruction is a branch instruction then its control type is either taken
---  or not taken.
-data Control = NA
-             | Taken    Word32 Word32
-             | NotTaken Word32 Word32
-             deriving (Show, Eq, Read)
-
--- |This function returns true if the specified control is an NA.
-isNA :: Control -> Bool
-isNA       (NA          ) = True
-isNA       _              = False
-
--- |This function returns true if the specified control is a Taken.
-isTaken :: Control -> Bool
-isTaken    (Taken    _ _) = True
-isTaken    _              = False
-
--- |This function returns true if the specified control is a NotTaken.
-isNotTaken :: Control -> Bool
-isNotTaken (NotTaken _ _) = True
-isNotTaken _              = False
-
--- |This function returns the target of the control.
-getControlTarget :: Control -> Word32
-getControlTarget (NA          ) = undefined
-getControlTarget (Taken    _ t) = t
-getControlTarget (NotTaken _ t) = t
-
--- |This function returns the pc of the control.
-getControlPC :: Control -> Word32
-getControlPC (NA           ) = undefined
-getControlPC (Taken    pc _) = pc
-getControlPC (NotTaken pc _) = pc
 
 -- |This instance allows fmapping over the extra value in the Instruction type.
 instance Functor (Instruction t) where

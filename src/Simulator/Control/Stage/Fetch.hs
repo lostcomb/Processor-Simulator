@@ -30,11 +30,10 @@ fetch = do pc_val <- use $ fetchStage.programCounter
            i4 <- use $ instMem.item (fromIntegral (pc_val + 3))
            fetchStage.programCounter += instLength
            -- Stall fetch stage if we read a HALT instruction.
-           when ((i1 .&. 0xF0) `shiftR` 4 == 15) $ fetchStage.stalled.byFetch .= True
+           when ((i1 .&. 0xF0) `shiftR` 4 == 15) $
+             fetchStage.stalled.byFetch .= True
            c <- predict pc_val (i1, i2, i3, i4)
-           when (isTaken c) $ do
-             -- If we predict that the branch will be taken, set the program
-             -- counter to the target address.
-             let target = getControlTarget c
-             fetchStage.programCounter .= target
+           -- If we predict that the branch will be taken, set the program
+           -- counter to the target address.
+           when (isTaken c) $ fetchStage.programCounter .= (getTarget c)
            return $ Just (i1, i2, i3, i4, c)

@@ -37,11 +37,11 @@ pipelinedExecute' (Just (Instruction 1 i co, _)) = do
   fetchStage.stalled.byExecute .= False
   decodeStage.stalled.byExecute .= False
   issueStage.stalled.byExecute .= False
-  i' <- execute i co
-  b  <- use $ options.bypassEnabled
-  if b then executeStage.bypassValues .= (Just . map tripleToTuple . maybeToList) i'
+  (i', inv) <- execute i co
+  b         <- use $ options.bypassEnabled
+  if b then executeStage.bypassValues .= (Just . maybeToList) i'
        else executeStage.bypassValues .= Nothing
-  return . Right . Just $ i'
+  return . Right . Just $ (i', inv)
 pipelinedExecute' (Just                 (i, rs)) = do
   fetchStage.stalled.byExecute .= True
   decodeStage.stalled.byExecute .= True
@@ -64,12 +64,12 @@ subPipelinedExecute m_inst ps = do
       simData.insts += 1
       let ps'' = filter (\(Instruction _ is _, _) -> i /= is) ps'
       executeStage.subPipeline .= ps''
-      i' <- execute i co
-      b  <- use $ options.bypassEnabled
+      (i', inv) <- execute i co
+      b         <- use $ options.bypassEnabled
       let d = or . map (usesRegister i' . snd) $ ps''
-      if b && not d then executeStage.bypassValues .= (Just . map tripleToTuple . maybeToList) i'
+      if b && not d then executeStage.bypassValues .= (Just . maybeToList) i'
                     else executeStage.bypassValues .= Nothing
-      return . Right . Just $ i'
+      return . Right . Just $ (i', inv)
   where findInst [] = Nothing
         findInst ps = let (Instruction c i co, rs) = minimum ps in
                       if c > 1 then Just . Left  $ (i, co, rs)
@@ -78,28 +78,28 @@ subPipelinedExecute m_inst ps = do
 superscalarExecute :: [ IssuedData ] -> ProcessorState [ ExecutedData ]
 superscalarExecute = undefined
 
-execute :: Inst Int32 -> Control -> ProcessorState (Maybe (Register, Int32, Bool))
+execute :: Inst Int32 -> Control -> ProcessorState (Maybe (Register, Int32), Bool)
 execute i co = case i of
-  (Nop         ) -> return Nothing
-  (Add rd ri rj) -> return . Just $ (rd, ri + rj, False)
-  (Sub rd ri rj) -> return . Just $ (rd, ri - rj, False)
-  (Mul rd ri rj) -> return . Just $ (rd, ri * rj, False)
-  (Div rd ri rj) -> return . Just $ (rd, ri `div` rj, False)
-  (And rd ri rj) -> return . Just $ (rd, ri .&. rj, False)
-  (Or  rd ri rj) -> return . Just $ (rd, ri .|. rj, False)
-  (Not rd ri   ) -> return . Just $ (rd, complement ri, False)
-  (Jmp    ri   ) -> do branch True co
-                       let inv = if isTaken co then False else True
-                       return . Just $ (pc, ri, inv)
-  (Bez    ri  c) -> do let taken  = ri == 0
-                           inv    = not (isTaken co && taken)
-                           target = if taken then fromIntegral c
-                                    else fromIntegral (getControlTarget co)
-                       branch taken co
-                       return . Just $ (pc, target, inv)
-  (Ceq rd ri rj) -> return . Just $ (rd, if ri == rj then 1 else 0, False)
-  (Cgt rd ri rj) -> return . Just $ (rd, if ri >  rj then 1 else 0, False)
-  (Ldc rd     c) -> return . Just $ (rd, fromIntegral c, False)
+  (Nop         ) -> return (Nothing                 , False)
+  (Add rd ri rj) -> return (Just (rd, ri + rj      ), False)
+  (Sub rd ri rj) -> return (Just (rd, ri - rj      ), False)
+  (Mul rd ri rj) -> return (Just (rd, ri * rj      ), False)
+  (Div rd ri rj) -> return (Just (rd, ri `div` rj  ), False)
+  (And rd ri rj) -> return (Just (rd, ri .&. rj    ), False)
+  (Or  rd ri rj) -> return (Just (rd, ri .|. rj    ), False)
+  (Not rd ri   ) -> return (Just (rd, complement ri), False)
+  (Jmp    ri   ) -> do branch True (Just . fromIntegral $ ri) co
+                       return (Just (pc, ri), not . isTaken $ co)
+  (Bez    ri  c) -> do let target = if ri == 0 then Just (fromIntegral c)
+                                               else Nothing
+                           result = if ri == 0 then Just (pc, fromIntegral c)
+                                               else Nothing
+                           inv    = (ri == 0) `xor` isTaken co
+                       branch (ri == 0) target co
+                       return (result, inv)
+  (Ceq rd ri rj) -> return (Just (rd, if ri == rj then 1 else 0), False)
+  (Cgt rd ri rj) -> return (Just (rd, if ri >  rj then 1 else 0), False)
+  (Ldc rd     c) -> return (Just (rd, fromIntegral c           ), False)
   (Ldm rd ri   ) -> do mem1 <- use $ dataMem.item (fromIntegral ri    )
                        mem2 <- use $ dataMem.item (fromIntegral ri + 1)
                        mem3 <- use $ dataMem.item (fromIntegral ri + 2)
@@ -109,7 +109,7 @@ execute i co = case i of
                            b3   = fromIntegral mem3 `shiftL` 8
                            b4   = fromIntegral mem4
                            word = b1 .|. b2 .|. b3 .|. b4
-                       return $ Just (rd, word, False)
+                       return (Just (rd, word), False)
   (Stm    ri rj) -> do let b1 = fromIntegral (rj `shiftR` 24)
                            b2 = fromIntegral (rj `shiftR` 16)
                            b3 = fromIntegral (rj `shiftR` 8 )
@@ -118,9 +118,9 @@ execute i co = case i of
                        dataMem.item (fromIntegral ri + 1) .= b2
                        dataMem.item (fromIntegral ri + 2) .= b3
                        dataMem.item (fromIntegral ri + 3) .= b4
-                       return Nothing
+                       return (Nothing, False)
   (Halt        ) -> do halted .= True
-                       return Nothing
+                       return (Nothing, False)
 
 tripleToTuple :: (a, b, c) -> (a, b)
 tripleToTuple (a, b, _) = (a, b)

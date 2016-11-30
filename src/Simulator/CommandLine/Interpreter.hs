@@ -97,6 +97,8 @@ interpret' step (Latches   ) = do dec <- use decInputLatches
                                   liftIO . putStrLn $ arrow
                                   fetchStalled <- use $ fetchStage.isStalled
                                   liftIO . putStrLn $ "FET STALLED: " ++ show fetchStalled
+interpret' step (Caches    ) = do sat_cache <- use $ btac
+                                  liftIO . putStrLn . show $ sat_cache
 interpret' step (Quit      ) = liftIO exitSuccess
 
 setInstCycles :: String -> Int -> ProcessorState ()
