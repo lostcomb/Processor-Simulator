@@ -40,26 +40,28 @@ data BranchPrediction = Static
                       deriving (Show, Eq, Read)
 
 data Options = Options
-  { _procType         :: Type
-  , _bypassEnabled    :: Bool
-  , _pipelinedEUs     :: Bool
-  , _branchPrediction :: BranchPrediction
-  , _noEUs            :: Int
-  , _noInstsPerCycle  :: Int
-  , help              :: Bool
+  { _procType          :: Type
+  , _bypassEnabled     :: Bool
+  , _pipelinedEUs      :: Bool
+  , _branchPrediction  :: BranchPrediction
+  , _branchHistoryBits :: Word32
+  , _noEUs             :: Int
+  , _noInstsPerCycle   :: Int
+  , help               :: Bool
   }
 -- Let Template Haskell make the lenses.
 makeLenses ''Options
 
 defaultOptions :: Options
 defaultOptions = Options
-  { _procType         = Scalar
-  , _bypassEnabled    = False
-  , _pipelinedEUs     = False
-  , _branchPrediction = Static
-  , _noEUs            = 1
-  , _noInstsPerCycle  = 1
-  , help              = False
+  { _procType          = Scalar
+  , _bypassEnabled     = False
+  , _pipelinedEUs      = False
+  , _branchPrediction  = Static
+  , _branchHistoryBits = 4
+  , _noEUs             = 1
+  , _noInstsPerCycle   = 1
+  , help               = False
   }
 
 -- |These types correspond to the types of the output data for each stage.
@@ -85,6 +87,7 @@ data Processor = Processor
   , _writebackStage  :: Writeback
   , _invalidate      :: Bool
   , _btac            :: BTAC
+  , _patternHistory  :: PatternHistory
   , _instMem         :: InstMem
   , _dataMem         :: DataMem
   , _regFile         :: RegisterFile
@@ -109,6 +112,7 @@ newProcessor insts opts = Processor
   , _writebackStage  = newWriteback
   , _invalidate      = False
   , _btac            = newBTAC
+  , _patternHistory  = newPatternHistory
   , _instMem         = Seq.fromList insts
   , _dataMem         = Map.empty
   , _regFile         = newRegFile

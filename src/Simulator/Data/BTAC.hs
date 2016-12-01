@@ -3,6 +3,8 @@ module Simulator.Data.BTAC
   ( module Simulator.Data.BTAC
   ) where
 
+import Data.Map (Map)
+import qualified Data.Map as Map
 import Data.Word
 import Data.Maybe
 import Control.Lens
@@ -15,11 +17,18 @@ data Saturation = StronglyTaken
                 deriving (Show, Eq, Read)
 
 -- |This type defines a branch target address cache.
-type BTAC = [ (Word32, (Maybe Word32, Saturation)) ]
+type BTAC = [ (Word32, (Maybe Word32, Either Saturation Word32)) ]
 
 -- |This defines an empty branch target address cache.
 newBTAC :: BTAC
 newBTAC = []
+
+-- |This type defines a pattern history table.
+type PatternHistory = Map Word32 Saturation
+
+-- |This defines an empty pattern history table.
+newPatternHistory :: PatternHistory
+newPatternHistory = Map.empty
 
 -- |This data type defines the control type of an instruction. If the
 --  instruction isn't a branch instruction, then its control is NA. If the
@@ -57,11 +66,27 @@ getPC (NA           ) = undefined
 getPC (NotTaken pc  ) = pc
 getPC (Taken    pc _) = pc
 
--- |This lens provides a getter and setter for the branch target address And
+-- |This lens provides a getter and setter for the pattern history table.
+entry :: Word32 -> Lens' PatternHistory Saturation
+entry index = lens (\ph   -> Map.findWithDefault StronglyTaken index ph)
+                   (\ph s -> Map.insert index s ph                     )
+
+-- |This lens provides a getter and setter for the branch target address and
+--  saturation tags/history register in the branch target address cache.
+entry' :: Word32 -> (Maybe Word32, Either Saturation Word32)
+       -> Lens' BTAC (Maybe Word32, Either Saturation Word32)
+entry' pc def = lens (\sc   -> lookupWithDefault def pc sc)
+                     (\sc e -> update pc e sc             )
+
+-- |This lens provides a getter and setter for the branch target address and
 --  saturation tags in the branch target address cache.
-entry :: Word32 -> Lens' BTAC (Maybe Word32, Saturation)
-entry pc = lens (\sc   -> lookupWithDefault (Nothing, StronglyTaken) pc sc)
-                (\sc e -> update pc e sc                                  )
+saturationEntry :: Word32 -> Lens' BTAC (Maybe Word32, Either Saturation Word32)
+saturationEntry pc = entry' pc (Nothing, Left StronglyTaken)
+
+-- |This les provides a getter and setter for the branch target address and
+--  history register in the branch target address cache.
+twoLevelEntry :: Word32 -> Lens' BTAC (Maybe Word32, Either Saturation Word32)
+twoLevelEntry pc = entry' pc (Nothing, Right 0)
 
 -- |This function returns true if the we should predict taken given the
 --  specified saturation state.

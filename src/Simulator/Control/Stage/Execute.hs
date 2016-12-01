@@ -121,6 +121,3 @@ execute i co = case i of
                        return (Nothing, False)
   (Halt        ) -> do halted .= True
                        return (Nothing, False)
-
-tripleToTuple :: (a, b, c) -> (a, b)
-tripleToTuple (a, b, _) = (a, b)

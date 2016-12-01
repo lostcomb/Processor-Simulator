@@ -27,6 +27,9 @@ optionList
     , Option ['p'] ["branch_prediction"]
       (ReqArg (\t opts -> opts { _branchPrediction = parseBranchPrediction t }) "(static|saturating|twolevel)")
       "Sets the type of branch prediction to use, static (always not taken), saturating counter, two level adaptive."
+    , Option ['k'] ["history_bits"]
+      (ReqArg (\t opts -> opts { _branchHistoryBits = read t }) "integer")
+      "Sets the number of history bits to be used for each branch instruction."
     , Option ['f'] ["no_insts"]
       (ReqArg (\n opts -> opts { _noInstsPerCycle = (read n) }) "integer")
       "Sets the number of instructions to be fetched per cycle."

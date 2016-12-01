@@ -4,7 +4,6 @@
 
 ## TODO: ##
 
-* Implement branch prediction.
 * Implement re-order buffer.
 * Implement out-of-order scheduling.
 * Implement multiple execution units.
