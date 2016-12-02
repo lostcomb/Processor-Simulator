@@ -92,6 +92,9 @@ execute i co = case i of
   (Or  rd ri rj) -> return (Just (rd, ri .|. rj    ), False)
   (Not rd ri   ) -> return (Just (rd, complement ri), False)
   (Jmp    ri   ) -> do branch True (Just . fromIntegral $ ri) co
+                       simData.predictions %= (++) [ (Jmp ri, isTaken co) ]
+                       if isTaken co then simData.hitPredictions += 1
+                                     else simData.misPredictions += 1
                        return (Just (pc, ri), not . isTaken $ co)
   (Bez    ri  c) -> do let target = if ri == 0 then Just (fromIntegral c)
                                                else Nothing
@@ -99,6 +102,9 @@ execute i co = case i of
                                                else Nothing
                            inv    = (ri == 0) `xor` isTaken co
                        branch (ri == 0) target co
+                       simData.predictions %= (++) [ (Bez ri c, not inv) ]
+                       if not inv then simData.hitPredictions += 1
+                                  else simData.misPredictions += 1
                        return (result, inv)
   (Ceq rd ri rj) -> return (Just (rd, if ri == rj then 1 else 0), False)
   (Cgt rd ri rj) -> return (Just (rd, if ri >  rj then 1 else 0), False)
