@@ -36,6 +36,9 @@ optionList
     , Option ['e'] ["no_eus"]
       (ReqArg (\n opts -> opts { _noEUs = (read n) }) "integer")
       "Sets the number of execution units to be used in a superscalar configuration."
+    , Option ['o'] ["out_of_order"]
+      (NoArg (\opts -> opts { _outOfOrder = True }))
+      "Enables out-of-order execution."
     , Option []    ["help"]
       (NoArg (\opts -> opts { help = True }))
       "Prints this help message."

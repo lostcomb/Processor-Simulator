@@ -75,7 +75,7 @@ subPipelinedExecute m_inst ps = do
                       if c > 1 then Just . Left  $ (i, co, rs)
                                else Just . Right $ (i, co, rs)
 
-superscalarExecute :: [ IssuedData ] -> ProcessorState [ ExecutedData ]
+superscalarExecute :: [ IssuedData ] -> ProcessorState [ Either IssuedData ExecutedData ]
 superscalarExecute = mapM pipelinedExecute
 {- TODO: Maybe need to make sure that there is only one branch instruction
    being executed at a time, by setting a flag so that the issue unit can check

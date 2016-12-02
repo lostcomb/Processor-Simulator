@@ -47,6 +47,7 @@ data Options = Options
   , _branchHistoryBits :: Word32
   , _noEUs             :: Int
   , _noInstsPerCycle   :: Int
+  , _outOfOrder        :: Bool
   , help               :: Bool
   }
 -- Let Template Haskell make the lenses.
@@ -61,6 +62,7 @@ defaultOptions = Options
   , _branchHistoryBits = 4
   , _noEUs             = 1
   , _noInstsPerCycle   = 1
+  , _outOfOrder        = False
   , help               = False
   }
 

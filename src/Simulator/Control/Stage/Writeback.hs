@@ -19,8 +19,15 @@ pipelinedWriteback :: ExecutedData -> ProcessorState ()
 pipelinedWriteback = writeback
 
 superscalarWriteback :: [ ExecutedData ] -> ProcessorState ()
-superscalarWriteback = mapM writeback
--- TODO: Maybe use a simple version and leave invalidation to the re-order buffer.
+superscalarWriteback = mapM writeback'
+  where writeback' (Nothing) = return ()
+        writeback' (Just  d) = do regFile.regVal pc += instLength
+                                  case d of
+                                    (Just (r, v), _) -> do
+                                      regFile.regVal  r .= v
+                                      regFile.regFlag r -= 1
+                                    (Nothing    , _) -> do
+                                      regFile.regFlag pc -= 1
 
 writeback :: ExecutedData -> ProcessorState ()
 writeback (Nothing) = return ()

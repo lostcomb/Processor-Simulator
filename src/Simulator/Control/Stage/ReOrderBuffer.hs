@@ -8,4 +8,5 @@ superscalarReOrderBuffer :: ([ DecodedData ], [ ExecutedData ]) -> ProcessorStat
 superscalarReOrderBuffer = undefined
 {- TODO: Make space available for the decoded data, and put the executed data
    into the reorder buffer. If there are any items in the re-order buffer
-   available to be written to the register file, then do so. -}
+   available to be written to the register file, then do so.
+   This must handle invalidation. -}
