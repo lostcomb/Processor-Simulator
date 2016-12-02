@@ -34,6 +34,13 @@ pipelinedIssue (Just (Instruction c i co)) = do
 
 superscalarIssue :: [ DecodedData ] -> ProcessorState [ IssuedData ]
 superscalarIssue = undefined
+{- TODO: Issue the instructions in-order unless the out-of-order flag is set.
+   Check that only one branch is in the eus at any time.
+   Check for RaR, WaR and WaW dependencies.
+   If can't issue an instruction, add it to the issue window. When the issue
+   window gets to be a certain size, stall until we can issue an instruction
+   from it.
+   Max no of issued instructions per cycle == options.noEUs -}
 
 checkForDependency :: Inst Register -> Maybe [ (Register, Int32) ] -> ProcessorState Bool
 checkForDependency i bypass = case i of

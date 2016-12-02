@@ -76,7 +76,10 @@ subPipelinedExecute m_inst ps = do
                                else Just . Right $ (i, co, rs)
 
 superscalarExecute :: [ IssuedData ] -> ProcessorState [ ExecutedData ]
-superscalarExecute = undefined
+superscalarExecute = mapM pipelinedExecute
+{- TODO: Maybe need to make sure that there is only one branch instruction
+   being executed at a time, by setting a flag so that the issue unit can check
+   and not issue another one until it has executed. -}
 
 execute :: Inst Int32 -> Control -> ProcessorState (Maybe (Register, Int32), Bool)
 execute i co = case i of

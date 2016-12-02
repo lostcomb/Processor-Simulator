@@ -19,7 +19,8 @@ pipelinedWriteback :: ExecutedData -> ProcessorState ()
 pipelinedWriteback = writeback
 
 superscalarWriteback :: [ ExecutedData ] -> ProcessorState ()
-superscalarWriteback = undefined
+superscalarWriteback = mapM writeback
+-- TODO: Maybe use a simple version and leave invalidation to the re-order buffer.
 
 writeback :: ExecutedData -> ProcessorState ()
 writeback (Nothing) = return ()

@@ -20,7 +20,8 @@ pipelinedFetch :: ProcessorState FetchedData
 pipelinedFetch = fetch
 
 superscalarFetch :: ProcessorState [ FetchedData ]
-superscalarFetch = undefined
+superscalarFetch = do inst_no <- use $ options.noInstsPerCycle
+                      replicateM inst_no fetch
 
 fetch :: ProcessorState FetchedData
 fetch = do pc_val <- use $ fetchStage.programCounter

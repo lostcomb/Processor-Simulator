@@ -19,7 +19,7 @@ pipelinedDecode :: FetchedData -> ProcessorState DecodedData
 pipelinedDecode = decode
 
 superscalarDecode :: [ FetchedData ] -> ProcessorState [ DecodedData ]
-superscalarDecode = undefined
+superscalarDecode = mapM decode
 
 decode :: FetchedData -> ProcessorState DecodedData
 decode (Nothing) = return Nothing
