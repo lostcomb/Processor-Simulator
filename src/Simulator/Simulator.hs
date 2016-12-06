@@ -93,20 +93,22 @@ pipelinedProcessor
         unless :: Lens' Processor Bool -> ProcessorState () -> ProcessorState ()
         unless cond m = do b <- use cond
                            i <- use invalidate
-                           if not b && not i then m
-                           else return ()
-        updateStallCounts :: ProcessorState ()
-        updateStallCounts = do
-          f <- use $ fetchStage.isStalled
-          when f $ simData.fetchStalledCount     += 1
-          d <- use $ decodeStage.isStalled
-          when d $ simData.decodeStalledCount    += 1
-          i <- use $ issueStage.isStalled
-          when i $ simData.issueStalledCount     += 1
-          e <- use $ executeStage.isStalled
-          when e $ simData.executeStalledCount   += 1
-          w <- use $ writebackStage.isStalled
-          when w $ simData.writebackStalledCount += 1
+                           when (not b && not i) m
 
 superscalarProcessor :: ProcessorState ()
 superscalarProcessor = undefined
+
+updateStallCounts :: ProcessorState ()
+updateStallCounts = do
+  f <- use $ fetchStage.isStalled
+  when f $ simData.fetchStalledCount     += 1
+  d <- use $ decodeStage.isStalled
+  when d $ simData.decodeStalledCount    += 1
+  r <- use $ robStage.isStalled
+  when r $ simData.robStalledCount       += 1
+  i <- use $ issueStage.isStalled
+  when i $ simData.issueStalledCount     += 1
+  e <- use $ executeStage.isStalled
+  when e $ simData.executeStalledCount   += 1
+  w <- use $ writebackStage.isStalled
+  when w $ simData.writebackStalledCount += 1

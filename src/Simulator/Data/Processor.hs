@@ -11,6 +11,7 @@ module Simulator.Data.Processor
   , module Simulator.Data.Registers
   , module Simulator.Data.Instruction
   , module Simulator.Data.BTAC
+  , module Simulator.Data.ReservationStation
   ) where
 
 import Data.Int
@@ -28,6 +29,7 @@ import Simulator.Data.Simdata
 import Simulator.Data.Registers
 import Simulator.Data.Instruction
 import Simulator.Data.BTAC
+import Simulator.Data.ReservationStation
 
 data Type = Scalar
           | Pipelined
@@ -81,6 +83,8 @@ data Processor = Processor
   { _fetchStage          :: Fetch
   , _decInputLatches     :: Either FetchedData [ FetchedData ]
   , _decodeStage         :: Decode
+  , _robInputLatches     :: [ ([ DecodedData ], [ ExecutedData ]) ]
+  , _robStage            :: ReOrderBuffer
   , _issInputLatches     :: Either DecodedData [ DecodedData ]
   , _issueStage          :: Issue
   , _exeInputLatches     :: Either IssuedData [ IssuedData ]
@@ -107,6 +111,8 @@ newProcessor insts opts = Processor
   { _fetchStage          = newFetch
   , _decInputLatches     = latches (_procType opts)
   , _decodeStage         = newDecode
+  , _robInputLatches     = []
+  , _robStage            = newReOrderBuffer
   , _issInputLatches     = latches (_procType opts)
   , _issueStage          = newIssue
   , _exeInputLatches     = latches (_procType opts)

@@ -28,7 +28,8 @@ interpret' step (Continue ) = do whileM_ (liftM not $ use halted)
                                  liftIO $ putStrLn "Execution Halted."
 interpret' step (Registers ) = printRegisters
 interpret' step (Memory    ) = printMemory
-interpret' step (Stats     ) = printStatistics
+interpret' step (Stats     ) = do simData <- use $ simData
+                                  liftIO . putStrLn . toString $ simData
 interpret' step (FetchI    ) = do liftIO . putStrLn $ "Fetch Stage:"
                                   stall   <- use $ fetchStage.stalled
                                   liftIO . putStrLn $ "  Stalled: " ++ show stall
@@ -48,10 +49,6 @@ interpret' step (DecodeI   ) = do liftIO . putStrLn $ "Decode Stage:"
 interpret' step (IssueI    ) = do liftIO . putStrLn $ "Issue Stage:"
                                   stall   <- use $ issueStage.stalled
                                   liftIO . putStrLn $ "  Stalled: " ++ show stall
-                                  i_win   <- use $ issueStage.issueWindow
-                                  liftIO . putStrLn $ "  Issue Window: " ++ show i_win
-                                  e_win   <- use $ issueStage.execWindow
-                                  liftIO . putStrLn $ "  Exec Window: " ++ show e_win
                                   input  <- use $ issInputLatches
                                   liftIO . putStrLn $ "  Input: " ++ show input
                                   output  <- use $ exeInputLatches
@@ -192,23 +189,6 @@ printMemory = do mem <- use $ dataMem
                 v_s = show val
                 padding = replicate (21 - length i_s - length v_s) ' '
         genMem _                = ""
-
-printStatistics :: ProcessorState ()
-printStatistics = do cs <- use $ simData.cycles
-                     is <- use $ simData.insts
-                     f <- use $ simData.fetchStalledCount
-                     d <- use $ simData.decodeStalledCount
-                     i <- use $ simData.issueStalledCount
-                     e <- use $ simData.executeStalledCount
-                     w <- use $ simData.writebackStalledCount
-                     liftIO $ putStrLn $ "Cycles: "                  ++ show cs
-                     liftIO $ putStrLn $ "Instructions: "            ++ show is
-                     liftIO $ putStrLn $ "Fetch stalled count: "     ++ show f
-                     liftIO $ putStrLn $ "Decode stalled count: "    ++ show d
-                     liftIO $ putStrLn $ "Issue stalled count: "     ++ show i
-                     liftIO $ putStrLn $ "Execute stalled count: "   ++ show e
-                     liftIO $ putStrLn $ "Writeback stalled count: " ++ show w
-
 
 chunksOf :: Int -> [ a ] -> [ [ a ] ]
 chunksOf n xs

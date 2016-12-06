@@ -16,7 +16,6 @@
 * Implement reservation stations.
 * Implement register re-naming.
 
-* Update the stats command to display branch predictions.
 * Draw graphs for each of the simdata items that maintain a list of history.
 
 ## Experiments: ##

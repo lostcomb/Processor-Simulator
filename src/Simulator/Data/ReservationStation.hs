@@ -4,6 +4,7 @@ module Simulator.Data.ReservationStation
 
 import Data.Int
 
+import Simulator.Data.Registers
 import Simulator.Data.Instruction
 
 -- |This type defines a reservation station. It is simply a list of instructions

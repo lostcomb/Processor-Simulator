@@ -11,6 +11,7 @@ import Data.Int
 import Control.Lens
 import Simulator.Data.Instruction
 
+-- |This data type defines the data to be collected during simulation.
 data Simdata = Simdata
   -- Counts the number of cycles executed.
   { _cycles                :: Int
@@ -21,6 +22,7 @@ data Simdata = Simdata
   -- Counts the number of cycles each stage is stalled during execution.
   , _fetchStalledCount     :: Int
   , _decodeStalledCount    :: Int
+  , _robStalledCount       :: Int
   , _issueStalledCount     :: Int
   , _executeStalledCount   :: Int
   , _writebackStalledCount :: Int
@@ -36,6 +38,7 @@ data Simdata = Simdata
 -- Let Template Haskell make the lenses for Simdata.
 makeLenses ''Simdata
 
+-- |This defines the simulation data before simulation has begun.
 newSimdata :: Simdata
 newSimdata = Simdata
   { _cycles                = 0
@@ -43,6 +46,7 @@ newSimdata = Simdata
   , _instsPerCycle         = []
   , _fetchStalledCount     = 0
   , _decodeStalledCount    = 0
+  , _robStalledCount       = 0
   , _issueStalledCount     = 0
   , _executeStalledCount   = 0
   , _writebackStalledCount = 0
@@ -51,3 +55,16 @@ newSimdata = Simdata
   , _hitPredictions        = 0
   , _outOfOrderPerCycle    = []
   }
+
+-- |This function returns the stringular representation of the simulation data.
+toString :: Simdata -> String
+toString d = "Cycles: "             ++ show (_cycles                d)              ++ "\n" ++
+             "Instructions: "       ++ show (_insts                 d)              ++ "\n" ++
+             "Stalled Counts: (F, " ++ show (_fetchStalledCount     d) ++ ") "      ++
+                             "(D, " ++ show (_decodeStalledCount    d) ++ ") "      ++
+                             "(R, " ++ show (_robStalledCount       d) ++ ") "      ++
+                             "(I, " ++ show (_issueStalledCount     d) ++ ") "      ++
+                             "(E, " ++ show (_executeStalledCount   d) ++ ") "      ++
+                             "(W, " ++ show (_writebackStalledCount d) ++ ")"       ++ "\n" ++
+             "Branch predictions: " ++ show (_hitPredictions        d) ++ " hits, " ++
+                                       show (_misPredictions        d) ++ " mises"

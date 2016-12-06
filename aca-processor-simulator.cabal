@@ -34,6 +34,7 @@ executable aca-processor-simulator
                        Simulator.Data.Registers,
                        Simulator.Data.Simdata,
                        Simulator.Data.BTAC,
+                       Simulator.Data.ReservationStation,
                        Simulator.Data.Stage.Decode,
                        Simulator.Data.Stage.Execute,
                        Simulator.Data.Stage.Fetch,
