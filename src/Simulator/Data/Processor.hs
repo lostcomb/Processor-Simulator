@@ -78,50 +78,52 @@ type DataMem = Map Word32 Word8
 
 -- |This data type contains all of the processors state.
 data Processor = Processor
-  { _fetchStage      :: Fetch
-  , _decInputLatches :: Either FetchedData [ FetchedData ]
-  , _decodeStage     :: Decode
-  , _issInputLatches :: Either DecodedData [ DecodedData ]
-  , _issueStage      :: Issue
-  , _exeInputLatches :: Either IssuedData [ IssuedData ]
-  , _executeStage    :: Execute
-  , _wrbInputLatches :: Either ExecutedData [ ExecutedData ]
-  , _writebackStage  :: Writeback
-  , _invalidate      :: Bool
-  , _btac            :: BTAC
-  , _patternHistory  :: PatternHistory
-  , _instMem         :: InstMem
-  , _dataMem         :: DataMem
-  , _regFile         :: RegisterFile
-  , _simData         :: Simdata
-  , _instCycles      :: Inst Register -> Int
-  , _halted          :: Bool
-  , _options         :: Options
+  { _fetchStage          :: Fetch
+  , _decInputLatches     :: Either FetchedData [ FetchedData ]
+  , _decodeStage         :: Decode
+  , _issInputLatches     :: Either DecodedData [ DecodedData ]
+  , _issueStage          :: Issue
+  , _exeInputLatches     :: Either IssuedData [ IssuedData ]
+  , _executeStage        :: Execute
+  , _wrbInputLatches     :: Either ExecutedData [ ExecutedData ]
+  , _writebackStage      :: Writeback
+  , _invalidate          :: Bool
+  , _btac                :: BTAC
+  , _patternHistory      :: PatternHistory
+  , _reservationStations :: [ ReservationStation ]
+  , _instMem             :: InstMem
+  , _dataMem             :: DataMem
+  , _regFile             :: RegisterFile
+  , _simData             :: Simdata
+  , _instCycles          :: Inst Register -> Int
+  , _halted              :: Bool
+  , _options             :: Options
   }
 -- Let Template Haskell make the lenses.
 makeLenses ''Processor
 
 newProcessor :: [ Word8 ] -> Options -> Processor
 newProcessor insts opts = Processor
-  { _fetchStage      = newFetch
-  , _decInputLatches = latches (_procType opts)
-  , _decodeStage     = newDecode
-  , _issInputLatches = latches (_procType opts)
-  , _issueStage      = newIssue
-  , _exeInputLatches = latches (_procType opts)
-  , _executeStage    = newExecute
-  , _wrbInputLatches = latches (_procType opts)
-  , _writebackStage  = newWriteback
-  , _invalidate      = False
-  , _btac            = newBTAC
-  , _patternHistory  = newPatternHistory
-  , _instMem         = Seq.fromList insts
-  , _dataMem         = Map.empty
-  , _regFile         = newRegFile
-  , _simData         = newSimdata
-  , _instCycles      = defaultCycles
-  , _halted          = False
-  , _options         = opts
+  { _fetchStage          = newFetch
+  , _decInputLatches     = latches (_procType opts)
+  , _decodeStage         = newDecode
+  , _issInputLatches     = latches (_procType opts)
+  , _issueStage          = newIssue
+  , _exeInputLatches     = latches (_procType opts)
+  , _executeStage        = newExecute
+  , _wrbInputLatches     = latches (_procType opts)
+  , _writebackStage      = newWriteback
+  , _invalidate          = False
+  , _btac                = newBTAC
+  , _patternHistory      = newPatternHistory
+  , _reservationStations = replicate (_noEUs opts) newReservationStation
+  , _instMem             = Seq.fromList insts
+  , _dataMem             = Map.empty
+  , _regFile             = newRegFile
+  , _simData             = newSimdata
+  , _instCycles          = defaultCycles
+  , _halted              = False
+  , _options             = opts
   }
   where latches Superscalar = Right . replicate (_noInstsPerCycle opts) $ Nothing
         latches _           = Left Nothing

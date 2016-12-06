@@ -4,18 +4,13 @@ module Simulator.Data.Stage.Issue
   ) where
 
 import Simulator.Data.Stall
-import Simulator.Data.Instruction
 
 data Issue = Issue
-  { _issueStalled     :: Stalled
-  , _issueIssueWindow :: [ InstructionReg ]
-  , _issueExecWindow  :: [ InstructionReg ]
+  { _issueStalled :: Stalled
   }
   deriving (Show, Eq, Read)
 
 newIssue :: Issue
 newIssue = Issue
-  { _issueStalled     = newStalled
-  , _issueIssueWindow = []
-  , _issueExecWindow  = []
+  { _issueStalled = newStalled
   }

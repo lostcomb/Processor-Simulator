@@ -39,6 +39,7 @@ executable aca-processor-simulator
                        Simulator.Data.Stage.Fetch,
                        Simulator.Data.Stage.Issue,
                        Simulator.Data.Stage.Writeback,
+                       Simulator.Data.Stage.ReOrderBuffer,
                        Simulator.Control.Stage.Decode,
                        Simulator.Control.Stage.Execute,
                        Simulator.Control.Stage.Fetch,

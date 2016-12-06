@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Simulator.Control.Stage.Writeback
   ( scalarWriteback
   , pipelinedWriteback
@@ -19,7 +20,7 @@ pipelinedWriteback :: ExecutedData -> ProcessorState ()
 pipelinedWriteback = writeback
 
 superscalarWriteback :: [ ExecutedData ] -> ProcessorState ()
-superscalarWriteback = mapM writeback'
+superscalarWriteback = mapM_ writeback'
   where writeback' (Nothing) = return ()
         writeback' (Just  d) = do regFile.regVal pc += instLength
                                   case d of
