@@ -15,30 +15,42 @@ import Simulator.Data.Processor
 
 optionList :: [ OptDescr (Options -> Options) ]
 optionList
-  = [ Option ['t'] ["proctype"]
+  = [ Option []    ["proctype"]
       (ReqArg (\t opts -> opts { _procType = parseType t }) "(scalar|pipelined|superscalar)")
       "Sets the type of processor to use, simple scalar, simple pipelined or superscalar."
     , Option ['b'] ["bypass"]
       (NoArg (\opts -> opts { _bypassEnabled = True }))
       "Enables execution unit output bypassing."
-    , Option ['s'] ["sub_pipeline"]
+    , Option ['p'] ["sub_pipeline"]
       (NoArg (\opts -> opts { _pipelinedEUs = True }))
       "Enables sub pipelining in the processor."
-    , Option ['p'] ["branch_prediction"]
+    , Option []    ["branch_prediction"]
       (ReqArg (\t opts -> opts { _branchPrediction = parseBranchPrediction t }) "(static|saturating|twolevel)")
       "Sets the type of branch prediction to use, static (always not taken), saturating counter, two level adaptive."
     , Option ['k'] ["history_bits"]
-      (ReqArg (\t opts -> opts { _branchHistoryBits = read t }) "integer")
+      (ReqArg (\t opts -> opts { _branchHistoryBits = read t }) "1,2,..")
       "Sets the number of history bits to be used for each branch instruction."
-    , Option ['f'] ["no_insts"]
-      (ReqArg (\n opts -> opts { _noInstsPerCycle = (read n) }) "integer")
-      "Sets the number of instructions to be fetched per cycle."
     , Option ['e'] ["no_eus"]
-      (ReqArg (\n opts -> opts { _noEUs = (read n) }) "integer")
+      (ReqArg (\n opts -> opts { _noEUs = (read n) }) "1,2,..")
       "Sets the number of execution units to be used in a superscalar configuration."
+    , Option ['f'] ["no_insts"]
+      (ReqArg (\n opts -> opts { _noInstsPerCycle = (read n) }) "1,2,..")
+      "Sets the number of instructions to be fetched per cycle."
     , Option ['o'] ["out_of_order"]
       (NoArg (\opts -> opts { _outOfOrder = True }))
       "Enables out-of-order execution."
+    , Option ['u'] ["unaligned_issue"]
+      (NoArg (\opts -> opts { _unAlignedIssue = True }))
+      "Enables the use of an unaligned issue window."
+    , Option ['i'] ["window_size"]
+      (ReqArg (\n opts -> opts { _issueWindowSize = read n }) "1,2,..")
+      "Sets the number of instructions to choose from when issuing."
+    , Option ['s'] ["shelf_size"]
+      (ReqArg (\n opts -> opts { _shelfSize = read n }) "1,2,..")
+      "Sets the maximum number of instructions a reservation station can hold."
+    , Option ['r'] ["register_renaming"]
+      (NoArg (\opts -> opts { _registerRenaming = True }))
+      "Enables register renaming."
     , Option []    ["help"]
       (NoArg (\opts -> opts { help = True }))
       "Prints this help message."

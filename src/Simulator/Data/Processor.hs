@@ -50,6 +50,10 @@ data Options = Options
   , _noEUs             :: Int
   , _noInstsPerCycle   :: Int
   , _outOfOrder        :: Bool
+  , _unAlignedIssue    :: Bool
+  , _issueWindowSize   :: Int
+  , _shelfSize         :: Int
+  , _registerRenaming  :: Bool
   , help               :: Bool
   }
 -- Let Template Haskell make the lenses.
@@ -65,6 +69,10 @@ defaultOptions = Options
   , _noEUs             = 1
   , _noInstsPerCycle   = 1
   , _outOfOrder        = False
+  , _unAlignedIssue    = False
+  , _issueWindowSize   = 4
+  , _shelfSize         = 4
+  , _registerRenaming  = False
   , help               = False
   }
 
