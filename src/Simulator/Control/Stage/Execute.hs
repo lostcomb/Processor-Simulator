@@ -15,11 +15,11 @@ import Simulator.Data.Processor
 import Simulator.Control.BranchPrediction
 
 scalarExecute :: IssuedData -> ProcessorState ExecutedData
-scalarExecute (Nothing                     ) = return Nothing
-scalarExecute (Just (Instruction c i co, _)) = do simData.insts += 1
-                                                  simData.cycles += (c - 1)
-                                                  i' <- execute i co
-                                                  return . Just $ i'
+scalarExecute (Nothing                            ) = return Nothing
+scalarExecute (Just (index, Instruction c i co, _)) = do simData.insts += 1
+                                                         simData.cycles += (c - 1)
+                                                         i' <- execute index i co
+                                                         return . Just $ i'
 
 pipelinedExecute :: IssuedData -> ProcessorState (Either IssuedData ExecutedData)
 pipelinedExecute i = do
@@ -31,72 +31,70 @@ pipelinedExecute i = do
     pipelinedExecute' i
 
 pipelinedExecute' :: IssuedData -> ProcessorState (Either IssuedData ExecutedData)
-pipelinedExecute' (Nothing                     ) = return . Right $ Nothing
-pipelinedExecute' (Just (Instruction 1 i co, _)) = do
+pipelinedExecute' (Nothing                            ) = return . Right $ Nothing
+pipelinedExecute' (Just (index, Instruction 1 i co, _)) = do
   simData.insts += 1
   fetchStage.stalled.byExecute .= False
   decodeStage.stalled.byExecute .= False
   issueStage.stalled.byExecute .= False
-  (i', inv) <- execute i co
+  (index', i', inv) <- execute index i co
   b         <- use $ options.bypassEnabled
   if b then executeStage.bypassValues .= (Just . maybeToList) i'
        else executeStage.bypassValues .= Nothing
-  return . Right . Just $ (i', inv)
-pipelinedExecute' (Just                 (i, rs)) = do
+  return . Right . Just $ (index', i', inv)
+pipelinedExecute' (Just                 (index, i, rs)) = do
   fetchStage.stalled.byExecute .= True
   decodeStage.stalled.byExecute .= True
   issueStage.stalled.byExecute .= True
-  return . Left . Just $ (fmap pred i, rs)
+  return . Left . Just $ (index, fmap pred i, rs)
 
-subPipelinedExecute :: IssuedData -> [ (InstructionVal, [ Register ]) ]
+subPipelinedExecute :: IssuedData -> [ (Int, InstructionVal, [ Register ]) ]
                     -> ProcessorState (Either IssuedData ExecutedData)
 subPipelinedExecute m_inst ps = do
-  let ps' = map (\(i, r) -> (fmap pred i, r)) $ maybeToList m_inst ++ ps
+  let ps' = map (\(index, i, r) -> (index, fmap pred i, r)) $ maybeToList m_inst ++ ps
   case findInst ps' of
     Nothing                  -> return . Right $ Nothing
-    Just (Left  (i, co, rs)) -> do
+    Just (Left  (index, i, co, rs)) -> do
       executeStage.subPipeline .= ps'
       b <- use $ options.bypassEnabled
       if b then executeStage.bypassValues .= Just []
            else executeStage.bypassValues .= Nothing
       return . Right $ Nothing
-    Just (Right (i, co, rs)) -> do
+    Just (Right (index, i, co, rs)) -> do
       simData.insts += 1
-      let ps'' = filter (\(Instruction _ is _, _) -> i /= is) ps'
+      let ps'' = filter (\(_, Instruction _ is _, _) -> i /= is) ps'
       executeStage.subPipeline .= ps''
-      (i', inv) <- execute i co
-      b         <- use $ options.bypassEnabled
-      let d = or . map (usesRegister i' . snd) $ ps''
+      (index', i', inv) <- execute index i co
+      b                 <- use $ options.bypassEnabled
+      let d = or . map (usesRegister i' . (\(_, _, a) -> a)) $ ps''
       if b && not d then executeStage.bypassValues .= (Just . maybeToList) i'
                     else executeStage.bypassValues .= Nothing
-      return . Right . Just $ (i', inv)
+      return . Right . Just $ (index', i', inv)
   where findInst [] = Nothing
-        findInst ps = let (Instruction c i co, rs) = minimum ps in
-                      if c > 1 then Just . Left  $ (i, co, rs)
-                               else Just . Right $ (i, co, rs)
+        findInst ps = let (index, Instruction c i co, rs) = minimum ps in
+                      if c > 1 then Just . Left  $ (index, i, co, rs)
+                               else Just . Right $ (index, i, co, rs)
 
 superscalarExecute :: [ IssuedData ] -> ProcessorState [ Either IssuedData ExecutedData ]
-superscalarExecute = mapM pipelinedExecute
-{- TODO: Maybe need to make sure that there is only one branch instruction
-   being executed at a time, by setting a flag so that the issue unit can check
-   and not issue another one until it has executed. -}
+superscalarExecute = mapM pipelinedExecute --TODO: Change non-sub-pipelined version to just make the reservation station busy.
 
-execute :: Inst Int32 -> Control -> ProcessorState (Maybe (Register, Int32), Bool)
-execute i co = case i of
-  (Nop         ) -> return (Nothing                 , False)
-  (Add rd ri rj) -> return (Just (rd, ri + rj      ), False)
-  (Sub rd ri rj) -> return (Just (rd, ri - rj      ), False)
-  (Mul rd ri rj) -> return (Just (rd, ri * rj      ), False)
-  (Div rd ri rj) -> return (Just (rd, ri `div` rj  ), False)
-  (And rd ri rj) -> return (Just (rd, ri .&. rj    ), False)
-  (Or  rd ri rj) -> return (Just (rd, ri .|. rj    ), False)
-  (Not rd ri   ) -> return (Just (rd, complement ri), False)
+execute :: Int -> Inst Int32 -> Control -> ProcessorState (Int, Maybe (Register, Int32), Bool)
+execute index i co = case i of
+  (Nop         ) -> return (index, Nothing                 , False)
+  (Add rd ri rj) -> return (index, Just (rd, ri + rj      ), False)
+  (Sub rd ri rj) -> return (index, Just (rd, ri - rj      ), False)
+  (Mul rd ri rj) -> return (index, Just (rd, ri * rj      ), False)
+  (Div rd ri rj) -> return (index, Just (rd, ri `div` rj  ), False)
+  (And rd ri rj) -> return (index, Just (rd, ri .&. rj    ), False)
+  (Or  rd ri rj) -> return (index, Just (rd, ri .|. rj    ), False)
+  (Not rd ri   ) -> return (index, Just (rd, complement ri), False)
   (Jmp    ri   ) -> do branch True (Just . fromIntegral $ ri) co
-                       let taken = if isTaken co then getTarget co == fromIntegral ri else False
+                       let taken = if isTaken co then getTarget co == fromIntegral ri
+                                                 else False
                        simData.predictions %= (++) [ (Jmp ri, taken) ]
                        if taken then simData.hitPredictions += 1
                                 else simData.misPredictions += 1
-                       return (Just (pc, ri), not taken)
+                       return (index, Just (pc, ri), not taken)
   (Bez    ri  c) -> do let target = if ri == 0 then Just (fromIntegral c)
                                                else Nothing
                            result = if ri == 0 then Just (pc, fromIntegral c)
@@ -106,10 +104,10 @@ execute i co = case i of
                        simData.predictions %= (++) [ (Bez ri c, not inv) ]
                        if not inv then simData.hitPredictions += 1
                                   else simData.misPredictions += 1
-                       return (result, inv)
-  (Ceq rd ri rj) -> return (Just (rd, if ri == rj then 1 else 0), False)
-  (Cgt rd ri rj) -> return (Just (rd, if ri >  rj then 1 else 0), False)
-  (Ldc rd     c) -> return (Just (rd, fromIntegral c           ), False)
+                       return (index, result, inv)
+  (Ceq rd ri rj) -> return (index, Just (rd, if ri == rj then 1 else 0), False)
+  (Cgt rd ri rj) -> return (index, Just (rd, if ri >  rj then 1 else 0), False)
+  (Ldc rd     c) -> return (index, Just (rd, fromIntegral c           ), False)
   (Ldm rd ri   ) -> do mem1 <- use $ dataMem.item (fromIntegral ri    )
                        mem2 <- use $ dataMem.item (fromIntegral ri + 1)
                        mem3 <- use $ dataMem.item (fromIntegral ri + 2)
@@ -119,7 +117,7 @@ execute i co = case i of
                            b3   = fromIntegral mem3 `shiftL` 8
                            b4   = fromIntegral mem4
                            word = b1 .|. b2 .|. b3 .|. b4
-                       return (Just (rd, word), False)
+                       return (index, Just (rd, word), False)
   (Stm    ri rj) -> do let b1 = fromIntegral (rj `shiftR` 24)
                            b2 = fromIntegral (rj `shiftR` 16)
                            b3 = fromIntegral (rj `shiftR` 8 )
@@ -128,6 +126,6 @@ execute i co = case i of
                        dataMem.item (fromIntegral ri + 1) .= b2
                        dataMem.item (fromIntegral ri + 2) .= b3
                        dataMem.item (fromIntegral ri + 3) .= b4
-                       return (Nothing, False)
+                       return (index, Nothing, False)
   (Halt        ) -> do halted .= True
-                       return (Nothing, False)
+                       return (index, Nothing, False)

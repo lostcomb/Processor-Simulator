@@ -53,7 +53,7 @@ data Options = Options
   , _unAlignedIssue    :: Bool
   , _issueWindowSize   :: Int
   , _shelfSize         :: Int
-  , _registerRenaming  :: Bool
+  , _robSize           :: Int
   , help               :: Bool
   }
 -- Let Template Haskell make the lenses.
@@ -72,15 +72,15 @@ defaultOptions = Options
   , _unAlignedIssue    = False
   , _issueWindowSize   = 4
   , _shelfSize         = 4
-  , _registerRenaming  = False
+  , _robSize           = 28
   , help               = False
   }
 
 -- |These types correspond to the types of the output data for each stage.
 type FetchedData  = Maybe (Word8, Word8, Word8, Word8, Control)
 type DecodedData  = Maybe InstructionReg
-type IssuedData   = Maybe (InstructionVal, [ Register ])
-type ExecutedData = Maybe (Maybe (Register, Int32), Bool)
+type IssuedData   = Maybe (Int, InstructionVal, [ Register ])
+type ExecutedData = Maybe (Int, Maybe (Register, Int32), Bool)
 
 -- Define types for memories.
 type InstMem = Seq Word8
@@ -91,7 +91,7 @@ data Processor = Processor
   { _fetchStage          :: Fetch
   , _decInputLatches     :: Either FetchedData [ FetchedData ]
   , _decodeStage         :: Decode
-  , _robInputLatches     :: [ ([ DecodedData ], [ ExecutedData ]) ]
+  , _robInputLatches     :: ([ DecodedData ], [ ExecutedData ])
   , _robStage            :: ReOrderBuffer
   , _issInputLatches     :: Either DecodedData [ DecodedData ]
   , _issueStage          :: Issue
@@ -103,6 +103,7 @@ data Processor = Processor
   , _btac                :: BTAC
   , _patternHistory      :: PatternHistory
   , _reservationStations :: [ ReservationStation ]
+  , _registerAliasTable  :: RegisterAliasTable
   , _instMem             :: InstMem
   , _dataMem             :: DataMem
   , _regFile             :: RegisterFile
@@ -119,7 +120,7 @@ newProcessor insts opts = Processor
   { _fetchStage          = newFetch
   , _decInputLatches     = latches (_procType opts)
   , _decodeStage         = newDecode
-  , _robInputLatches     = []
+  , _robInputLatches     = ([], [])
   , _robStage            = newReOrderBuffer
   , _issInputLatches     = latches (_procType opts)
   , _issueStage          = newIssue
@@ -131,6 +132,7 @@ newProcessor insts opts = Processor
   , _btac                = newBTAC
   , _patternHistory      = newPatternHistory
   , _reservationStations = replicate (_noEUs opts) newReservationStation
+  , _registerAliasTable  = newRegisterAliasTable
   , _instMem             = Seq.fromList insts
   , _dataMem             = Map.empty
   , _regFile             = newRegFile

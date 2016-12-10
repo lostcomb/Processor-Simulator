@@ -38,6 +38,20 @@ data Inst t where
   Halt ::                                Inst t
   deriving (Show, Eq, Read)
 
+-- |This data type distinguished between a control instruction, store instruction
+--  and arithmetic / logic / load instructions.
+data InstType = Control
+              | Store
+              | Other
+              deriving (Show, Eq, Read)
+
+-- |This function returns the instruction type for the specified instruction.
+instType :: Inst Register -> InstType
+instType i
+  | isJmp i || isBez i = Control
+  | isStm i            = Store
+  | otherwise          = Other
+
 -- |This function returns true if the specified register is in the specified
 --  list of registers.
 usesRegister :: Maybe (Register, Int32) -> [ Register ] -> Bool
@@ -64,6 +78,27 @@ instOperands i = case i of
   (Ldm _ ri   ) -> [ ri ]
   (Stm   ri rj) -> [ ri, rj ]
   (Halt       ) -> []
+
+-- |This function returns the destination register written to by the specified
+--  instruction, or nothing it if doesn't use one.
+instDestination :: Inst Register -> Maybe Register
+instDestination i = case i of
+  (Nop       ) -> Nothing
+  (Add rd _ _) -> Just rd
+  (Sub rd _ _) -> Just rd
+  (Mul rd _ _) -> Just rd
+  (Div rd _ _) -> Just rd
+  (And rd _ _) -> Just rd
+  (Or  rd _ _) -> Just rd
+  (Not rd _  ) -> Just rd
+  (Jmp    _  ) -> Nothing
+  (Bez    _ _) -> Nothing
+  (Ceq rd _ _) -> Just rd
+  (Cgt rd _ _) -> Just rd
+  (Ldc rd   _) -> Just rd
+  (Ldm rd _  ) -> Just rd
+  (Stm    _ _) -> Nothing
+  (Halt      ) -> Nothing
 
 -- |This data type adds an extra parameter to the Inst type. This can be used
 --  to make instructions take more than one cycle.

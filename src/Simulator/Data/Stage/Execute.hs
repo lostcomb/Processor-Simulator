@@ -11,8 +11,7 @@ import Simulator.Data.Instruction
 data Execute = Execute
   { _executeStalled        :: Stalled
   , _executeBypassValues   :: Maybe [ (Register, Int32) ]
-  , _executeSubPipeline    :: [ (InstructionVal, [ Register ]) ]
-  , _executeBranchInFlight :: Bool
+  , _executeSubPipeline    :: [ (Int, InstructionVal, [ Register ]) ]
   }
   deriving (Show, Eq, Read)
 
@@ -21,5 +20,4 @@ newExecute = Execute
   { _executeStalled        = newStalled
   , _executeBypassValues   = Nothing
   , _executeSubPipeline    = []
-  , _executeBranchInFlight = False
   }

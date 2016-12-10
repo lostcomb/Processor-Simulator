@@ -10,17 +10,22 @@ import Control.Lens
 import Control.Monad.State
 
 import Simulator.Data.Processor
+import Simulator.Data.Association
 
 scalarIssue :: DecodedData -> ProcessorState IssuedData
-scalarIssue (Nothing                  ) = return Nothing
-scalarIssue (Just (Instruction c i co)) = do i' <- fillInsts i Nothing
-                                             return . Just $ (Instruction c i' co, instOperands i)
+scalarIssue (Nothing                  )
+  = return Nothing
+scalarIssue (Just (Instruction c i co))
+  = do i' <- fillInsts i Nothing
+       return . Just $ (0, Instruction c i' co, instOperands i)
 
 pipelinedIssue :: DecodedData -> ProcessorState IssuedData
 pipelinedIssue (Nothing                  ) = return Nothing
 pipelinedIssue (Just (Instruction c i co)) = do
           bs <- use $ executeStage.bypassValues
-          d  <- checkForDependency i bs
+          s  <- use $ issueStage.speculative
+          d  <- checkForDependency i s bs
+          issueStage.speculative .= (isJmp i || isBez i)
           if d then do
             simData.issueStalledCount += 1
             fetchStage.stalled.byIssue .= True
@@ -30,20 +35,22 @@ pipelinedIssue (Just (Instruction c i co)) = do
             fetchStage.stalled.byIssue .= False
             decodeStage.stalled.byIssue .= False
             i' <- fillInsts i bs
-            return . Just $ (Instruction c i' co, instOperands i)
+            return . Just $ (0, Instruction c i' co, instOperands i)
 
-superscalarIssue :: [ DecodedData ] -> ProcessorState [ IssuedData ]
-superscalarIssue = undefined
+superscalarIssue :: ProcessorState [ IssuedData ]
+superscalarIssue = do (rs0:rss) <- use $ reservationStations
+                      ooo  <- use $ options.outOfOrder
+                      rs0' <-       issue' False  rs0
+                      rss' <- mapM (issue' True ) rss
+                      return undefined
+  where issue' outOfOrder rs = undefined
 {- TODO: Issue the instructions in-order unless the out-of-order flag is set.
    Check that only one branch is in the eus at any time.
-   Check for RaW, WaR and WaW dependencies.
-   If can't issue an instruction, add it to the issue window. When the issue
-   window gets to be a certain size, stall until we can issue an instruction
-   from it.
-   Max no of issued instructions per cycle == options.noEUs -}
+   Check for RaW, WaR and WaW dependencies. -- Should be handled by Tomasulo's algorithm.
+   Maximum of 1 instruction issued per cycle per reservation station. -}
 
-checkForDependency :: Inst Register -> Maybe [ (Register, Int32) ] -> ProcessorState Bool
-checkForDependency i bypass = case i of
+checkForDependency :: Inst Register -> Bool -> Maybe [ (Register, Int32) ] -> ProcessorState Bool
+checkForDependency i speculative bypass = case i of
   (Nop         ) -> return False
   (Add rd ri rj) -> (||) <$> check ri <*> check rj
   (Sub rd ri rj) -> (||) <$> check ri <*> check rj
@@ -58,7 +65,7 @@ checkForDependency i bypass = case i of
   (Cgt rd ri rj) -> (||) <$> check ri <*> check rj
   (Ldc rd     c) -> return False
   (Ldm rd ri   ) -> check ri
-  (Stm    ri rj) -> (||) <$> check ri <*> check rj
+  (Stm    ri rj) -> ((||) . (||) speculative) <$> check ri <*> check rj
   (Halt        ) -> return False
   where check :: Register -> ProcessorState Bool
         check r = do f <- use (regFile.regFlag r)
@@ -88,10 +95,4 @@ fillInsts i bypass = case i of
                          return r
         updateReg :: Register -> ProcessorState Int32
         updateReg r = do val <- use $ regFile.regVal r
-                         return . findWithDefault val r . fromMaybe [] $ bypass
-
-findWithDefault :: (Eq a) => b -> a -> [ (a, b) ] -> b
-findWithDefault def x []            = def
-findWithDefault def x ((x', y) : l)
-  | x == x'                         = y
-  | otherwise                       = findWithDefault def x l
+                         return . searchWithDefault val r . fromMaybe [] $ bypass

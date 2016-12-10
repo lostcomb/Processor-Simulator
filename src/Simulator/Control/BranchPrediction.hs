@@ -27,7 +27,7 @@ predict pc b = do
 staticPredict :: Word32 -> (Word8, Word8, Word8, Word8) -> ProcessorState Control
 staticPredict pc (b1, b2, b3, b4)
   | op_code == 8 || op_code == 9 = return $ NotTaken pc
-  | otherwise                    = return $ NA
+  | otherwise                    = return $ NA       pc
   where op_code = (b1 .&. 0xF0) `shiftR` 4
         b3_32   = (fromIntegral b3) :: Word32
         b4_32   = (fromIntegral b4) :: Word32
@@ -48,7 +48,7 @@ saturatingPredict pc (b1, b2, b3, b4) = case op_code of
           if predictTaken sat
             then return $ Taken    pc target
             else return $ NotTaken pc
-  _ -> return NA
+  _ -> return $ NA pc
   where op_code = (b1 .&. 0xF0) `shiftR` 4
         b3_32   = (fromIntegral b3) :: Word32
         b4_32   = (fromIntegral b4) :: Word32
@@ -71,7 +71,7 @@ twoLevelPredict pc (b1, b2, b3, b4) = case op_code of
           if predictTaken sat
             then return $ Taken    pc target
             else return $ NotTaken pc
-  _ -> return NA
+  _ -> return $ NA pc
   where op_code = (b1 .&. 0xF0) `shiftR` 4
         b3_32   = (fromIntegral b3) :: Word32
         b4_32   = (fromIntegral b4) :: Word32

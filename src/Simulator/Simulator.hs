@@ -11,6 +11,7 @@ import Control.Monad.State
 import Simulator.Data.Processor
 import Simulator.Control.Stage.Fetch
 import Simulator.Control.Stage.Decode
+import Simulator.Control.Stage.ReOrderBuffer
 import Simulator.Control.Stage.Issue
 import Simulator.Control.Stage.Execute
 import Simulator.Control.Stage.Writeback
@@ -96,7 +97,50 @@ pipelinedProcessor
                            when (not b && not i) m
 
 superscalarProcessor :: ProcessorState ()
-superscalarProcessor = undefined
+superscalarProcessor
+  = do -- Update the stall counts.
+       updateStallCounts
+       -- Get the value of the latches after the previous cycle.
+       (Right d) <- use decInputLatches
+       r         <- use robInputLatches
+       (Right e) <- use exeInputLatches
+       (Right w) <- use wrbInputLatches
+       -- Execute the Writeback stage unless it is stalled.
+       unless (writebackStage.isStalled) $ do
+         superscalarWriteback w
+       -- Execute the Execute stage unless it is stalled.
+       unless (executeStage.isStalled) $ do
+         e' <- superscalarExecute e
+         return ()
+         {- TODO:
+         case e' of
+           (Left    issuedData) -> do exeInputLatches .= Right issuedData
+                                      wrbInputLatches .= Right [ Nothing ] -- Change to robInputLatches
+           (Right executedData) -> do wrbInputLatches .= Right executedData
+         -}
+       -- Execute the Issue stage unless it is stalled.
+       unless (issueStage.isStalled) $ do
+         i' <- superscalarIssue
+         exeInputLatches .= Right i'
+       -- Execute the ReOrderBuffer stage unless it is stalled.
+       unless (robStage.isStalled) $ do
+         (dd', ed') <- superscalarReOrderBuffer r
+         return ()
+         -- TODO:wrbInputLatches .= Right ed'
+         -- if dd' isJust then set robInputLatches to inlcude dd'
+       -- Execute the Decode stage unless it is stalled.
+       unless (decodeStage.isStalled) $ do
+         d' <- superscalarDecode d
+         issInputLatches .= Right d'
+       -- Execute the Fetch stage unless it is stalled.
+       unless (fetchStage.isStalled) $ do
+         f' <- superscalarFetch
+         decInputLatches .= Right f'
+       -- Increment the number of cycles executed.
+       simData.cycles += 1
+  where unless :: Lens' Processor Bool -> ProcessorState () -> ProcessorState ()
+        unless cond m = do b <- use cond
+                           when (not b) m
 
 updateStallCounts :: ProcessorState ()
 updateStallCounts = do

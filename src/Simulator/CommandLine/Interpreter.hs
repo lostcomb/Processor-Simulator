@@ -6,6 +6,7 @@ import Data.Map (toList)
 import Data.Bits
 import Data.List
 import Data.Word
+import Text.Printf
 import System.Exit
 import Control.Lens
 import Control.Monad.State
@@ -30,6 +31,8 @@ interpret' step (Registers ) = printRegisters
 interpret' step (Memory    ) = printMemory
 interpret' step (Stats     ) = do simData <- use $ simData
                                   liftIO . putStrLn . toString $ simData
+                                  liftIO . putStrLn $  "Issue rate (instructions / cycle): "
+                                                    ++ printf "%.1f" (issueRate simData)
 interpret' step (FetchI    ) = do liftIO . putStrLn $ "Fetch Stage:"
                                   stall   <- use $ fetchStage.stalled
                                   liftIO . putStrLn $ "  Stalled: " ++ show stall

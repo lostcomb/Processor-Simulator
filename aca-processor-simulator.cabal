@@ -27,6 +27,7 @@ executable aca-processor-simulator
                        Compiler.SyntaxTree,
                        Simulator,
                        Simulator.Simulator,
+                       Simulator.Data.Association,
                        Simulator.Data.Stall,
                        Simulator.Data.Stage,
                        Simulator.Data.Instruction,

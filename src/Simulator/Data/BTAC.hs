@@ -9,6 +9,8 @@ import Data.Word
 import Data.Maybe
 import Control.Lens
 
+import Simulator.Data.Association
+
 -- |This data type defines the states of saturation a branch can be in.
 data Saturation = StronglyTaken
                 | WeaklyTaken
@@ -34,20 +36,20 @@ newPatternHistory = Map.empty
 --  instruction isn't a branch instruction, then its control is NA. If the
 --  instruction is a branch instruction then its control type is either taken
 --  or not taken.
-data Control = NA
+data Control = NA       Word32
              | Taken    Word32 Word32
              | NotTaken Word32
              deriving (Show, Eq, Read)
 
 -- |This function returns true if the specified control is an NA.
 isNA :: Control -> Bool
-isNA       (NA          ) = True
-isNA       _              = False
+isNA       (NA     _  ) = True
+isNA       _            = False
 
 -- |This function returns true if the specified control is a Taken.
 isTaken :: Control -> Bool
-isTaken    (Taken    _ _) = True
-isTaken    _              = False
+isTaken    (Taken  _ _) = True
+isTaken    _            = False
 
 -- |This function returns true if the specified control is a NotTaken.
 isNotTaken :: Control -> Bool
@@ -56,13 +58,13 @@ isNotTaken _            = False
 
 -- |This function returns the target of the control.
 getTarget :: Control -> Word32
-getTarget (NA          ) = undefined
+getTarget (NA       _  ) = undefined
 getTarget (NotTaken _  ) = undefined
 getTarget (Taken    _ t) = t
 
 -- |This function returns the pc of the control.
 getPC :: Control -> Word32
-getPC (NA           ) = undefined
+getPC (NA       pc  ) = pc
 getPC (NotTaken pc  ) = pc
 getPC (Taken    pc _) = pc
 
@@ -75,7 +77,7 @@ entry index = lens (\ph   -> Map.findWithDefault StronglyTaken index ph)
 --  saturation tags/history register in the branch target address cache.
 entry' :: Word32 -> (Maybe Word32, Either Saturation Word32)
        -> Lens' BTAC (Maybe Word32, Either Saturation Word32)
-entry' pc def = lens (\sc   -> lookupWithDefault def pc sc)
+entry' pc def = lens (\sc   -> searchWithDefault def pc sc)
                      (\sc e -> update pc e sc             )
 
 -- |This lens provides a getter and setter for the branch target address and
@@ -104,17 +106,3 @@ nextState StronglyTaken    False = WeaklyTaken
 nextState WeaklyTaken      False = WeaklyNotTaken
 nextState WeaklyNotTaken   False = StronglyNotTaken
 nextState StronglyNotTaken False = StronglyNotTaken
-
--- |This function gets the value associated with the specified key @key@.
---  If @key@ is not in the association list, then @def@ is returned.
-lookupWithDefault :: (Eq a) => b -> a -> [ (a, b) ] -> b
-lookupWithDefault def key assocs = fromMaybe def . lookup key $ assocs
-
--- |This function updates the values associated with the specified key @key@.
---  If @key@ is not in the association list, the tuple (@key@, @val@) will be
---  appended to the end of the association list.
-update :: (Eq a) => a -> b -> [ (a, b) ] -> [ (a, b) ]
-update key val [] = [ (key, val) ]
-update key val ((k, v):assocs)
-  | k == key  = (key, val) : assocs
-  | otherwise = (k, v) : update key val assocs

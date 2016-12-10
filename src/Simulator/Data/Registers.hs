@@ -6,6 +6,8 @@ module Simulator.Data.Registers
 import Data.Int
 import Control.Lens
 
+import Simulator.Data.Association
+
 -- |This type defines a flag to determine whether a register is clean or dirty.
 --  Flag == 0 means clean, Flag > 0 means dirty, Flag < 0 is undefined.
 type Flag = Int
@@ -66,20 +68,3 @@ regVal r = lens (\rf   -> searchWith (\(v, _) -> v     ) r rf)
 regFlag :: Register -> Lens' RegisterFile Flag
 regFlag r = lens (\rf   -> searchWith (\(_, f) -> f     ) r rf)
                  (\rf f -> updateWith (\(v, _) -> (v, f)) r rf)
-
--- |This function returns the value associated with the key @r@ applied to @f@.
---  Calls 'error' if the key @r@ is not in the association list.
-searchWith :: (Eq a) => (b -> c) -> a -> [ (a, b) ] -> c
-searchWith f r []           = error "searchWith: element not part of the specified list."
-searchWith f r ((x, y) : l)
-  | r == x                  = f y
-  | otherwise               = searchWith f r l
-
--- |This function returns the new association list with the value associated
---  with the key @r@ applied to the function @f@. Calls 'error' if the key
---  @r@ is not in the association list.
-updateWith :: (Eq a) => (b -> b) -> a -> [ (a, b) ] -> [ (a, b) ]
-updateWith f r []           = error "updateWith: element not part of the specified list."
-updateWith f r ((x, y) : l)
-  | r == x                  = (x, f y) : l
-  | otherwise               = (x,   y) : updateWith f r l

@@ -48,9 +48,9 @@ optionList
     , Option ['s'] ["shelf_size"]
       (ReqArg (\n opts -> opts { _shelfSize = read n }) "1,2,..")
       "Sets the maximum number of instructions a reservation station can hold."
-    , Option ['r'] ["register_renaming"]
-      (NoArg (\opts -> opts { _registerRenaming = True }))
-      "Enables register renaming."
+    , Option ['r'] ["rob_size"]
+      (ReqArg (\n opts -> opts { _robSize = read n }) "1,2,..")
+      "Sets the number of entries in the reorder buffer."
     , Option []    ["help"]
       (NoArg (\opts -> opts { help = True }))
       "Prints this help message."

@@ -7,6 +7,7 @@ module Simulator.Control.Stage.Writeback
 
 import Data.Int
 import Data.Word
+import Data.Maybe
 import Control.Lens
 import Control.Monad
 import Control.Monad.State
@@ -24,21 +25,26 @@ superscalarWriteback = mapM_ writeback'
   where writeback' (Nothing) = return ()
         writeback' (Just  d) = do regFile.regVal pc += instLength
                                   case d of
-                                    (Just (r, v), _) -> do
+                                    (instId, Just (r, v), _) -> do
                                       regFile.regVal  r .= v
                                       regFile.regFlag r -= 1
-                                    (Nothing    , _) -> do
+                                      -- Update the register alias table if this
+                                      -- instruction is the last to modify a register.
+                                      s <- use $ registerAliasTable.status r
+                                      when (fromMaybe (-1) s == instId) $ do
+                                        registerAliasTable.status r .= Nothing
+                                    (_     , Nothing    , _) -> do
                                       regFile.regFlag pc -= 1
 
 writeback :: ExecutedData -> ProcessorState ()
 writeback (Nothing) = return ()
 writeback (Just  d) = do regFile.regVal pc += instLength
                          case d of
-                           (Just (r, v), inv) -> do
+                           (_, Just (r, v), inv) -> do
                              regFile.regVal  r .= v
                              regFile.regFlag r -= 1
                              checkForInvalidation inv $ fromIntegral v
-                           (Nothing    , inv) -> do
+                           (_, Nothing    , inv) -> do
                              pc_val <- use $ regFile.regVal pc
                              regFile.regFlag pc -= 1
                              checkForInvalidation inv $ fromIntegral pc_val

@@ -68,3 +68,7 @@ toString d = "Cycles: "             ++ show (_cycles                d)          
                              "(W, " ++ show (_writebackStalledCount d) ++ ")"       ++ "\n" ++
              "Branch predictions: " ++ show (_hitPredictions        d) ++ " hits, " ++
                                        show (_misPredictions        d) ++ " mises"
+
+-- |This function returns the issue rate that the simulation data defines.
+issueRate :: Simdata -> Float
+issueRate d = fromIntegral (_insts d) / fromIntegral (_cycles d)
