@@ -120,7 +120,7 @@ execute inst_id i co = case i of
   (Bez    ri  c) -> do let target = if ri == 0 then Just (fromIntegral c)
                                                else Nothing
                            result = if ri == 0 then Just (pc, fromIntegral c)
-                                               else Just (pc, fromIntegral . getPC $ co)
+                                               else Just (pc, fromIntegral (getPC co + instLength))
                            inv    = (ri == 0) `xor` isTaken co
                        branch (ri == 0) target co
                        simData.predictions ++= [ (Bez ri c, not inv) ]
