@@ -84,11 +84,12 @@ pipelinedProcessor
   where checkForInvalidation :: ProcessorState ()
         checkForInvalidation = do
           i <- use invalidate
+          n <- use $ options.noEUs
           when i $ do
             decInputLatches          .= Left Nothing
             issInputLatches          .= Left Nothing
             exeInputLatches          .= Left Nothing
-            executeStage.subPipeline .= []
+            executeStage.subPipeline .= newSubPipeline n
             wrbInputLatches          .= Left Nothing
             invalidate               .= False
         unless :: Lens' Processor Bool -> ProcessorState () -> ProcessorState ()
@@ -124,7 +125,7 @@ superscalarProcessor
          exeInputLatches .= Right i'
        -- Execute the ReOrderBuffer stage unless it is stalled.
        unless (robStage.isStalled) $ do
-         (dd', ed') <- superscalarReOrderBuffer r
+         (d', w') <- superscalarReOrderBuffer r
          return ()
          -- TODO:wrbInputLatches .= Right ed'
          -- if dd' isJust then set robInputLatches to inlcude dd'
@@ -136,9 +137,20 @@ superscalarProcessor
        unless (fetchStage.isStalled) $ do
          f' <- superscalarFetch
          decInputLatches .= Right f'
+       -- Set decode and reorder buffer latches to Nothing if the pipeline is
+       -- to be invalidated.
+       checkForInvalidation
        -- Increment the number of cycles executed.
        simData.cycles += 1
-  where unless :: Lens' Processor Bool -> ProcessorState () -> ProcessorState ()
+  where checkForInvalidation :: ProcessorState ()
+        checkForInvalidation = do
+          i       <- use invalidate
+          (_, ed) <- use robInputLatches
+          when i $ do
+            decInputLatches .= Left Nothing
+            robInputLatches .= ([], ed)
+            invalidate      .= False
+        unless :: Lens' Processor Bool -> ProcessorState () -> ProcessorState ()
         unless cond m = do b <- use cond
                            when (not b) m
 

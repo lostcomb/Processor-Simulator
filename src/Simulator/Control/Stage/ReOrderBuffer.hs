@@ -4,6 +4,7 @@ module Simulator.Control.Stage.ReOrderBuffer
   ) where
 
 import Data.Int
+import Data.List
 import Data.Maybe
 import Control.Lens
 import Control.Monad
@@ -13,105 +14,157 @@ import Simulator.Data.Processor
 superscalarReOrderBuffer :: ([ DecodedData ], [ ExecutedData ])
                          -> ProcessorState (Maybe [ DecodedData ], [ ExecutedData ])
 superscalarReOrderBuffer (dd, ed)
-  = do --Perform stalling logic here, so functions don't need to worry about it.
-       ed'        <- updateInsts ed
-       (mdd, dd') <- allocateInsts dd
-       distributeInsts dd'
-       return (if mdd == [] then Nothing else Just mdd, ed')
-           --TODO: Get the updated rob after putting the executed data values into it.
-           --      Also, get the values to be written to the registers, maximum
-           --      of no_insts_per_cycle.
-           --      If inv flag is true for any incoming data item, set the valid
-           --      flag of all after it in the rob to false, and update the pc val
-           --      in the fetchStage.
-           --      If the valid flag is false, don't write to registers.
-           --      If the rob is full, stall previous stages.
-           --      Add the decoded instructions to the correct reservation stations
-           --      (rs0 is for laod/stores only and must operate in-order at all times).
-           --      If all of the reservation stations are full, stall previous stages.
+  = do rob        <- use $ robStage.buffer
+       let dd' = map fromJust . filter isJust $ dd
+           ed' = map fromJust . filter isJust $ ed
+           allocateable   = if branchInFlight rob && containsStore dd'
+                              then takeWhile (\(Instruction _ i _) -> not . isStm $ i) dd'
+                              else dd'
+           unallocateable = map (\x -> Just x) . drop (length allocateable) $ dd'
+       unallocateable' <- allocateInsts allocateable
+       let stalled_i = if unallocateable' ++ unallocateable == []
+                         then Nothing
+                         else Just $ unallocateable' ++ unallocateable
+       updateInsts ed'
+       ci <- completedInsts
 
--- |This function puts the values of instructions into their respective places
---  in the reorder buffer. It then returns the list of instructions that have
---  completed in program order.
-updateInsts :: [ ExecutedData ] -> ProcessorState [ ExecutedData ]
-updateInsts ed = do mapM_ updateInst ed
-                    getCompleted
-  where updateInst (Nothing               ) = return ()
-        updateInst (Just (instId, rv, inv)) = do
-          rob       <- use $ robStage.buffer
-          (rob', _) <- foldM (\(rob', valid') (iId, t, reg, val, valid, c) -> do
-                            if iId == instId then do
-                              let value = case rv of
-                                            Just (_, v') -> Just v'
-                                            Nothing      -> Nothing
-                                  inst = (iId, t, reg, value, valid', True)
-                              return (rob' ++ [inst], not inv)
-                            else do
-                              let inst = (iId, t, reg, val, valid', c)
-                              return (rob' ++ [inst], valid')) ([], False) rob
-          robStage.buffer .= rob'
-        getCompleted = do
-          rob <- use $ robStage.buffer
-          n <- use $ options.noInstsPerCycle
-          let wb   = takeWhile (\(_, _, _, _, _, completed) -> completed) . take n $ rob
-              rob' = drop (length wb) rob
-              wb'  = map (\(instId, _, r, v, _, _) -> case v of
-                             (Just val) -> Just (instId, Just (r, val), False)
-                             (Nothing ) -> Just (instId, Nothing      , False))
-                   . filter (\(_, _, _, _, valid, _) -> valid) $ wb
-          robStage.buffer .= rob'
-          return wb'
+       if stalled_i /= Nothing then do
+         fetchStage.stalled.byReOrderBuffer  .= True
+         decodeStage.stalled.byReOrderBuffer .= True
+       else do
+         fetchStage.stalled.byReOrderBuffer  .= False
+         decodeStage.stalled.byReOrderBuffer .= False
 
--- |This function converts the decoded instructions into reorder buffer entries.
-allocateInsts :: [ DecodedData ] -> ProcessorState ([ DecodedData ], [ (Int, DecodedData) ])
-allocateInsts = foldM allocateInst ([], []) . filter isJust
-  where allocateInst (dd, rb) (Just (Instruction c i co)) = do
-          rob <- use $ robStage.buffer
-          rob_size <- use $ options.robSize
-          if length rob < rob_size then do
-            --if isStm i && any (\) rob -- TODO Take into account Stores after branches.
-            if (not (isNop i || isStm i || isHalt i)) then do
-              nId <- use $ robStage.nextId
-              let entry = (nId, instType i, fromMaybe pc . instDestination $ i, Nothing, True, False)
-                  nId'  = (nId + 1) `mod` rob_size
-              robStage.nextId .= nId'
-              robStage.buffer .= (rob ++ [ entry ])
-              return (dd, rb ++ [ (nId, Just (Instruction c i co)) ])
-            else do
-              return (dd, rb ++ [ ((-1), Just (Instruction c i co)) ])
-          else do
-            return (dd ++ [ Just (Instruction c i co) ], rb)
+       return (stalled_i, ci)
 
+branchInFlight :: [ ReOrderBufferEntry ] -> Bool
+branchInFlight = foldl (\b (_, t, _, _, v, c) -> b || (t == Control && v && not c)) False
 
--- |This function distributes the decoded instructions evenly among the
---  reservation stations.
-distributeInsts :: [ (Int, DecodedData) ] -> ProcessorState ()
-distributeInsts = mapM_ distributeInst
-  where distributeInst (instId, dd) = undefined
+containsStore :: [ InstructionReg ] -> Bool
+containsStore = any (\(Instruction _ i _) -> isStm i)
+
+-- |This function updates the reorder buffer entries with the specified results.
+updateInsts :: [ (Int, Maybe (Register, Int32), Bool) ] -> ProcessorState ()
+updateInsts []                         = return ()
+updateInsts ((inst_id, value, inv):is) = do
+  rob <- use $ robStage.buffer
+  let updateEntry (iid, t, r, v, valid, c) = if iid == inst_id
+        then case value of
+          Just (reg, val) -> (iid, t, reg, Just val, valid, True)
+          Nothing         -> (iid, t,   r,        v, valid, True)
+        else (iid, t, r, v, valid, c)
+      rob' = map updateEntry rob
+      invalidate (iid, t, r, v, _, c) = (iid, t, r, v, False, c)
+      (Just index) = lookupIndex inst_id rob'
+      before = take (index + 1) rob'
+      after  = drop (index + 1) rob'
+      after' = if inv then map invalidate after
+                      else after
+  --If branch, update fetch stage pc and invalidate pipeline.
+  checkForBranch value inv --Possible error, multiple branches completing in the same cycle may overwrite the correct pc val.
+  robStage.buffer .= (before ++ after')
+  updateInsts is
+  where checkForBranch (Nothing    ) _   = return ()
+        checkForBranch (Just (r, v)) inv = do
+          when (r == pc && inv) $ do
+            fetchStage.programCounter .= fromIntegral v
+            invalidate .= True
+            registerAliasTable .= newRegisterAliasTable
+
+-- |This function returns a list of completed instructions in program order in
+--  the rob.
+completedInsts :: ProcessorState [ ExecutedData ]
+completedInsts = do
+  rob <- use $ robStage.buffer
+  n   <- use $ options.noInstsPerCycle
+  let completed  = take n . takeWhile (\(_, _, _, _, _, c) -> c) $ rob
+      completed' = filter (\(_, _, _, _, v, _) -> v) completed
+  robStage.buffer .= drop (length completed) rob
+  return . map (\(inst_id, _, d, v, _, _) -> case v of
+                    Just val -> Just (inst_id, Just (d, val), False)
+                    Nothing  -> Just (inst_id, Nothing      , False)) $ completed'
+
+-- |This function allocates the specified instructions in the reorder buffer and
+--  distributes them to the reservation stations. It only returns the instructions
+--  that can not be allocated.
+allocateInsts :: [ InstructionReg ] -> ProcessorState [ DecodedData ]
+allocateInsts []                        = return []
+allocateInsts ((Instruction c i co):is) = do
+  rob        <- use $ robStage.buffer
+  rob_size   <- use $ options.robSize
+  rss        <- use $ reservationStations
+  shelf_size <- use $ options.shelfSize
+  let cmp           = (\(_, (x, _, _)) (_, (y, _, _)) -> compare (length x) (length y))
+      (index, (rs, b, n))   = if isLdm i || isStm i then (0, head rss)
+                                            else minimumBy cmp . zip [1,2..] $ (tail rss)
+      rob_entries   = rob_size - length rob
+      shelf_entries = shelf_size - length rs
+  if rob_entries > 0 && shelf_entries > 0 then do
+    next_id <- use $ robStage.nextId
+    robStage.nextId .= (next_id + 1) `mod` rob_size
+    ((qi, vi), (qj, vj)) <- getOperandPointers next_id i
+    let dest        = fromMaybe pc . instDestination $ i
+        rob_entry   = (next_id, instType i, dest, Nothing, True, False)
+        shelf_entry = (next_id, Instruction c i co, qi, qj, vi, vj)
+    robStage.buffer .= (rob ++ [ rob_entry ])
+    reservationStations %= update index (rs ++ [ shelf_entry ], b, n)
+
+    allocateInsts is
+  else do
+    return . map (\x -> Just x) $ (Instruction c i co) : is
 
 -- |This function returns the reservation station pointers and values for the
 --  specified instruction.
-getOperandPointers :: InstructionReg -> ProcessorState (Maybe Int, Maybe Int, Int32, Int32)
-getOperandPointers (Instruction _ i _) = case i of
-  (Nop         ) -> (,,,) <$> defStatus    <*> defStatus    <*> defValue    <*> defValue
-  (Add rd ri rj) -> (,,,) <$> getStatus ri <*> getStatus rj <*> getValue ri <*> getValue rj
-  (Sub rd ri rj) -> (,,,) <$> getStatus ri <*> getStatus rj <*> getValue ri <*> getValue rj
-  (Mul rd ri rj) -> (,,,) <$> getStatus ri <*> getStatus rj <*> getValue ri <*> getValue rj
-  (Div rd ri rj) -> (,,,) <$> getStatus ri <*> getStatus rj <*> getValue ri <*> getValue rj
-  (And rd ri rj) -> (,,,) <$> getStatus ri <*> getStatus rj <*> getValue ri <*> getValue rj
-  (Or  rd ri rj) -> (,,,) <$> getStatus ri <*> getStatus rj <*> getValue ri <*> getValue rj
-  (Not rd ri   ) -> (,,,) <$> getStatus ri <*> defStatus    <*> getValue ri <*> defValue
-  (Jmp    ri   ) -> (,,,) <$> getStatus ri <*> defStatus    <*> getValue ri <*> defValue
-  (Bez    ri  o) -> (,,,) <$> getStatus ri <*> defStatus    <*> getValue ri <*> defValue
-  (Ceq rd ri rj) -> (,,,) <$> getStatus ri <*> getStatus rj <*> getValue ri <*> getValue rj
-  (Cgt rd ri rj) -> (,,,) <$> getStatus ri <*> getStatus rj <*> getValue ri <*> getValue rj
-  (Ldc rd     c) -> (,,,) <$> defStatus    <*> defStatus    <*> defValue    <*> defValue
-  (Ldm rd ri   ) -> (,,,) <$> getStatus ri <*> defStatus    <*> getValue ri <*> defValue
-  (Stm    ri rj) -> (,,,) <$> getStatus ri <*> getStatus rj <*> getValue ri <*> getValue rj
-  (Halt        ) -> (,,,) <$> defStatus    <*> defStatus    <*> defValue    <*> defValue
-  where defValue  = return 0
-        defStatus = return Nothing
-        getStatus r = use $ registerAliasTable.status r
-        getValue  r = do s <- getStatus r
-                         if s == Nothing then use $ regFile.regVal r
-                                         else defValue -- Look in the rob first.
+getOperandPointers :: Int -> Inst Register -> ProcessorState ((Maybe Int, Int32), (Maybe Int, Int32))
+getOperandPointers iid i = case i of
+  (Nop         ) -> (,) <$>                  defValues    <*> defValues
+  (Add rd ri rj) -> (,) <$  updateRAT rd <*> getValues ri <*> getValues rj
+  (Sub rd ri rj) -> (,) <$  updateRAT rd <*> getValues ri <*> getValues rj
+  (Mul rd ri rj) -> (,) <$  updateRAT rd <*> getValues ri <*> getValues rj
+  (Div rd ri rj) -> (,) <$  updateRAT rd <*> getValues ri <*> getValues rj
+  (And rd ri rj) -> (,) <$  updateRAT rd <*> getValues ri <*> getValues rj
+  (Or  rd ri rj) -> (,) <$  updateRAT rd <*> getValues ri <*> getValues rj
+  (Not rd ri   ) -> (,) <$  updateRAT rd <*> getValues ri <*> defValues
+  (Jmp    ri   ) -> (,) <$>                  getValues ri <*> defValues
+  (Bez    ri  o) -> (,) <$>                  getValues ri <*> defValues
+  (Ceq rd ri rj) -> (,) <$  updateRAT rd <*> getValues ri <*> getValues rj
+  (Cgt rd ri rj) -> (,) <$  updateRAT rd <*> getValues ri <*> getValues rj
+  (Ldc rd     c) -> (,) <$  updateRAT rd <*> defValues    <*> defValues
+  (Ldm rd ri   ) -> (,) <$  updateRAT rd <*> getValues ri <*> defValues
+  (Stm    ri rj) -> (,) <$>                  getValues ri <*> getValues rj
+  (Halt        ) -> (,) <$>                  defValues    <*> defValues
+  where defValues   = return (Nothing, 0)
+        getValues r = do rob <- use $ robStage.buffer
+                         s   <- use $ registerAliasTable.status r
+                         case s of
+                           Just inst_id -> case lookupIndex inst_id rob of
+                             Just index -> do
+                               let (_, _, _, v, valid, c) = rob !! index
+                               if valid && c then do return (Nothing, fromJust v)
+                                             else do v <- use $ regFile.regVal r
+                                                     return (Nothing, v)
+                             Nothing    -> return (Just inst_id, 0)
+                           Nothing      -> do v <- use $ regFile.regVal r
+                                              return (Nothing, v)
+        updateRAT r = registerAliasTable.status r .= Just iid
+
+-- |This function updates the value at index @n@ with @val@.
+update :: Int -> a -> [ a ] -> [ a ]
+update n val xs = take n xs ++ val : drop (n + 1) xs
+
+-- |This function returns the index of the reorder buffer entry with the
+--  corresponding instruction id.
+lookupIndex :: Int -> [ ReOrderBufferEntry ] -> Maybe Int
+lookupIndex iid rob = lookupIndex' iid rob
+  where lookupIndex' _ [] = Nothing
+        lookupIndex' iid ((inst_id, _, _, _, _, _):is)
+          | iid == inst_id = Just $ length rob - (length is + 1)
+          | otherwise      = lookupIndex' iid is
+
+-- |This function returns Nothing if the reoder buffer contains a completed
+--  instruction with the corresponding instruction id, Just instruction id
+--  otherwise.
+containsInst :: Int -> [ ReOrderBufferEntry ] -> Maybe Int
+containsInst iid rob = if any (\(inst_id, _, _, _, _, c) -> iid == inst_id && c) rob
+                     then Nothing
+                     else Just iid

@@ -125,13 +125,13 @@ newProcessor insts opts = Processor
   , _issInputLatches     = latches (_procType opts)
   , _issueStage          = newIssue
   , _exeInputLatches     = latches (_procType opts)
-  , _executeStage        = newExecute
+  , _executeStage        = newExecute (_noEUs opts)
   , _wrbInputLatches     = latches (_procType opts)
   , _writebackStage      = newWriteback
   , _invalidate          = False
   , _btac                = newBTAC
   , _patternHistory      = newPatternHistory
-  , _reservationStations = replicate (_noEUs opts) newReservationStation
+  , _reservationStations = replicate (_noEUs opts) rs
   , _registerAliasTable  = newRegisterAliasTable
   , _instMem             = Seq.fromList insts
   , _dataMem             = Map.empty
@@ -143,6 +143,7 @@ newProcessor insts opts = Processor
   }
   where latches Superscalar = Right . replicate (_noInstsPerCycle opts) $ Nothing
         latches _           = Left Nothing
+        rs                  = newReservationStation (min (_shelfSize opts) (_issueWindowSize opts))
 
 -- Define the type of functions that operate on the processor.
 type ProcessorState a = StateT Processor IO a

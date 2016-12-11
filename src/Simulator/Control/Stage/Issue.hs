@@ -38,18 +38,43 @@ pipelinedIssue (Just (Instruction c i co)) = do
             return . Just $ (0, Instruction c i' co, instOperands i)
 
 superscalarIssue :: ProcessorState [ IssuedData ]
-superscalarIssue = do (rs0:rss) <- use $ reservationStations
-                      ooo  <- use $ options.outOfOrder
-                      rs0' <-       issue' False  rs0
-                      rss' <- mapM (issue' True ) rss
-                      return undefined
-  where issue' outOfOrder rs = undefined
-{- TODO: Issue the instructions in-order unless the out-of-order flag is set.
-   Check that only one branch is in the eus at any time.
-   Check for RaW, WaR and WaW dependencies. -- Should be handled by Tomasulo's algorithm.
-   Maximum of 1 instruction issued per cycle per reservation station. -}
+superscalarIssue = do (rs0:rss)  <- use $ reservationStations
+                      ooo        <- use $ options.outOfOrder
+                      (rs0',  m) <-       issue' False  rs0
+                      i'         <- mapM (issue' ooo  ) rss
+                      let (rss', ms) = unzip i'
+                      reservationStations .= (rs0':rss')
+                      return (m:ms)
+  where issue' outOfOrder (rs, busy, n) = do
+          u  <- use $ options.unAlignedIssue
+          s  <- use $ options.issueWindowSize
+          ss <- use $ options.shelfSize
+          bs <- use $ executeStage.bypassValues
+          let size         = min s ss
+              window       = take (n + 1) rs
+              (ids, _, vs) = unzip3 . fromMaybe [] $ bs
+              bypass       = zip ids vs
+              insts        = if outOfOrder then filter    (ready bypass) window
+                                           else takeWhile (ready bypass) window
+          if not busy && length insts > 0 then do
+            let (i@(sel_id, _, _, _, _, _):_) = insts
+                rs' = filter (\(inst_id, _, _, _, _, _) -> inst_id == sel_id) rs
+            i' <- rsEntryToInst i bypass
+            return ((rs', busy, (n - 1) `mod` size), Just i')
+          else do
+            simData.issueStalledCount += 1
+            return ((rs , busy, n), Nothing)
 
-checkForDependency :: Inst Register -> Bool -> Maybe [ (Register, Int32) ] -> ProcessorState Bool
+-- |This function returns True if the specified reservation station entry is
+--  ready to be issued.
+ready :: [ (Int, Int32) ] -> ReservationStationEntry -> Bool
+ready bypass (_, _, qi, qj, _, _) = got qi && got qj
+  where got x = case x of
+          Just inst_id -> lookup inst_id bypass /= Nothing
+          Nothing      -> True
+
+checkForDependency :: Inst Register -> Bool -> Maybe [ (Int, Register, Int32) ]
+                   -> ProcessorState Bool
 checkForDependency i speculative bypass = case i of
   (Nop         ) -> return False
   (Add rd ri rj) -> (||) <$> check ri <*> check rj
@@ -69,10 +94,11 @@ checkForDependency i speculative bypass = case i of
   (Halt        ) -> return False
   where check :: Register -> ProcessorState Bool
         check r = do f <- use (regFile.regFlag r)
-                     let b = lookup r . fromMaybe [] $ bypass
+                     let (_, rs, vs) = unzip3 . fromMaybe [] $ bypass
+                         b = lookup r . zip rs $ vs
                      return $ isDirty f && b == Nothing
 
-fillInsts :: Inst Register -> Maybe [ (Register, Int32) ] -> ProcessorState (Inst Int32)
+fillInsts :: Inst Register -> Maybe [ (Int, Register, Int32) ] -> ProcessorState (Inst Int32)
 fillInsts i bypass = case i of
   (Nop         ) -> return Nop
   (Add rd ri rj) -> Add <$> stainReg rd <*> updateReg ri <*> updateReg rj
@@ -95,4 +121,33 @@ fillInsts i bypass = case i of
                          return r
         updateReg :: Register -> ProcessorState Int32
         updateReg r = do val <- use $ regFile.regVal r
-                         return . searchWithDefault val r . fromMaybe [] $ bypass
+                         let (_, rs, vs) = unzip3 . fromMaybe [] $ bypass
+                         return . searchWithDefault val r . zip rs $ vs
+
+rsEntryToInst :: ReservationStationEntry -> [ (Int, Int32) ]
+              -> ProcessorState (Int, InstructionVal, [ Register ])
+rsEntryToInst (inst_id, Instruction c i co, qi, qj, vi, vj) bypass
+  = return (inst_id, Instruction c i' co, instOperands i)
+  where vi' = case qi of
+                (Just key  ) -> fromJust . lookup key $ bypass
+                (Nothing   ) -> vi
+        vj' = case qj of
+                (Just key  ) -> fromJust . lookup key $ bypass
+                (Nothing   ) -> vj
+        i'  = case i of
+                (Nop       ) -> Nop
+                (Add rd _ _) -> Add rd vi' vj'
+                (Sub rd _ _) -> Sub rd vi' vj'
+                (Mul rd _ _) -> Mul rd vi' vj'
+                (Div rd _ _) -> Div rd vi' vj'
+                (And rd _ _) -> And rd vi' vj'
+                (Or  rd _ _) -> Or  rd vi' vj'
+                (Not rd _  ) -> Not rd vi'
+                (Jmp    _  ) -> Jmp    vi'
+                (Bez    _ o) -> Bez    vi' o
+                (Ceq rd _ _) -> Ceq rd vi' vj'
+                (Cgt rd _ _) -> Cgt rd vi' vj'
+                (Ldc rd   o) -> Ldc rd     o
+                (Ldm rd _  ) -> Ldm rd vi'
+                (Stm    _ _) -> Stm    vi' vj'
+                (Halt      ) -> Halt

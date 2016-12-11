@@ -27,14 +27,12 @@ superscalarWriteback = mapM_ writeback'
                                   case d of
                                     (instId, Just (r, v), _) -> do
                                       regFile.regVal  r .= v
-                                      regFile.regFlag r -= 1
                                       -- Update the register alias table if this
                                       -- instruction is the last to modify a register.
                                       s <- use $ registerAliasTable.status r
                                       when (fromMaybe (-1) s == instId) $ do
                                         registerAliasTable.status r .= Nothing
-                                    (_     , Nothing    , _) -> do
-                                      regFile.regFlag pc -= 1
+                                    (_     , Nothing    , _) -> return ()
 
 writeback :: ExecutedData -> ProcessorState ()
 writeback (Nothing) = return ()
@@ -46,7 +44,6 @@ writeback (Just  d) = do regFile.regVal pc += instLength
                              checkForInvalidation inv $ fromIntegral v
                            (_, Nothing    , inv) -> do
                              pc_val <- use $ regFile.regVal pc
-                             regFile.regFlag pc -= 1
                              checkForInvalidation inv $ fromIntegral pc_val
 
 checkForInvalidation :: Bool -> Word32 -> ProcessorState ()

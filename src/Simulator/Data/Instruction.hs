@@ -91,8 +91,8 @@ instDestination i = case i of
   (And rd _ _) -> Just rd
   (Or  rd _ _) -> Just rd
   (Not rd _  ) -> Just rd
-  (Jmp    _  ) -> Nothing
-  (Bez    _ _) -> Nothing
+  (Jmp    _  ) -> Just pc
+  (Bez    _ _) -> Just pc
   (Ceq rd _ _) -> Just rd
   (Cgt rd _ _) -> Just rd
   (Ldc rd   _) -> Just rd

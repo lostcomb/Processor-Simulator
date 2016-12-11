@@ -8,7 +8,8 @@ import Simulator.Data.Stall
 import Simulator.Data.Registers
 import Simulator.Data.Instruction
 
--- |This type defines a reorder buffer entry.
+-- |This type defines a reorder buffer entry. The types correspond to:
+--  (id, type, destination, value, valid, completed).
 type ReOrderBufferEntry = (Int, InstType, Register, Maybe Int32, Bool, Bool)
 
 -- |This data type defines a reorder buffer.
