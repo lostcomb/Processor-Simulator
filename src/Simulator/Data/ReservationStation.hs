@@ -26,9 +26,13 @@ newReservationStation n = ([], False, n)
 updatePointerValues :: (Int, Int32) -> ReservationStation -> ReservationStation
 updatePointerValues (p, v) (is, busy, n) = (is', busy, n)
   where is' = map (\i -> updateVi . updateVj $ i) is
+        updateVi (instId, inst, Nothing, qj, vi, vj)
+          = (instId, inst, Nothing, qj, vi, vj)
         updateVi (instId, inst, Just qi, qj, vi, vj)
           = if qi == p then (instId, inst, Nothing, qj,  v, vj)
                        else (instId, inst, Just qi, qj, vi, vj)
+        updateVj (instId, inst, qi, Nothing, vi, vj)
+          = (instId, inst, qi, Nothing, vi, vj)
         updateVj (instId, inst, qi, Just qj, vi, vj)
           = if qj == p then (instId, inst, qi, Nothing, vi,  v)
                        else (instId, inst, qi, Just qj, vi, vj)

@@ -23,7 +23,8 @@ pipelinedWriteback = writeback
 superscalarWriteback :: [ ExecutedData ] -> ProcessorState ()
 superscalarWriteback = mapM_ writeback'
   where writeback' (Nothing) = return ()
-        writeback' (Just  d) = do regFile.regVal pc += instLength
+        writeback' (Just  d) = do simData.insts += 1
+                                  regFile.regVal pc += instLength
                                   case d of
                                     (instId, Just (r, v), _) -> do
                                       regFile.regVal  r .= v
@@ -36,7 +37,8 @@ superscalarWriteback = mapM_ writeback'
 
 writeback :: ExecutedData -> ProcessorState ()
 writeback (Nothing) = return ()
-writeback (Just  d) = do regFile.regVal pc += instLength
+writeback (Just  d) = do simData.insts += 1
+                         regFile.regVal pc += instLength
                          case d of
                            (_, Just (r, v), inv) -> do
                              regFile.regVal  r .= v

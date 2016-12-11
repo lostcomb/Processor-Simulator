@@ -18,10 +18,11 @@ languageDef = emptyDef
   { reservedNames = [ "step"      , "continue"
                     , "registers" , "memory"
                     , "stats"     , "fetchi"
-                    , "decodei"   , "issuei"
-                    , "executei"  , "writebacki"
-                    , "set"       , "get"
-                    , "latches"   , "caches"
+                    , "decodei"   , "reorderi"
+                    , "issuei"    , "executei"
+                    , "writebacki", "set"
+                    , "get"       , "latches"
+                    , "caches"    , "rob"
                     , "quit"
                     ]
   }
@@ -52,6 +53,7 @@ commandsParser = commandParser `sepBy` semi lexer
 --        |   'stats'
 --        |   'fetchi'
 --        |   'decodei'
+--        |   'reorderi'
 --        |   'issuei'
 --        |   'executei'
 --        |   'writebacki'
@@ -59,6 +61,7 @@ commandsParser = commandParser `sepBy` semi lexer
 --        |   'get' <instruction_id>
 --        |   'latches'
 --        |   'caches'
+--        |   'rob'
 --        |   'quit'
 commandParser :: Parser Command
 commandParser =   (Step       <$  reserved lexer "step"
@@ -69,6 +72,7 @@ commandParser =   (Step       <$  reserved lexer "step"
               <|> (Stats      <$  reserved lexer "stats"                   )
               <|> (FetchI     <$  reserved lexer "fetchi"                  )
               <|> (DecodeI    <$  reserved lexer "decodei"                 )
+              <|> (ReOrderI   <$  reserved lexer "reorderi"                )
               <|> (IssueI     <$  reserved lexer "issuei"                  )
               <|> (ExecuteI   <$  reserved lexer "executei"                )
               <|> (WritebackI <$  reserved lexer "writebacki"              )
@@ -79,4 +83,5 @@ commandParser =   (Step       <$  reserved lexer "step"
                               <*> identifier lexer                         )
               <|> (Latches    <$  reserved lexer "latches"                 )
               <|> (Caches     <$  reserved lexer "caches"                  )
+              <|> (ROB        <$  reserved lexer "rob"                     )
               <|> (Quit       <$  reserved lexer "quit"                    )

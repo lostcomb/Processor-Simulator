@@ -5,9 +5,12 @@ module Simulator.Control.Stage.Issue
   ) where
 
 import Data.Int
+import Data.List (delete)
 import Data.Maybe
 import Control.Lens
 import Control.Monad.State
+
+import Debug.Trace
 
 import Simulator.Data.Processor
 import Simulator.Data.Association
@@ -51,15 +54,15 @@ superscalarIssue = do (rs0:rss)  <- use $ reservationStations
           ss <- use $ options.shelfSize
           bs <- use $ executeStage.bypassValues
           let size         = min s ss
-              window       = take (n + 1) rs
+              window       = if u then take (n + 1) rs else take s rs
               (ids, _, vs) = unzip3 . fromMaybe [] $ bs
               bypass       = zip ids vs
               insts        = if outOfOrder then filter    (ready bypass) window
                                            else takeWhile (ready bypass) window
           if not busy && length insts > 0 then do
-            let (i@(sel_id, _, _, _, _, _):_) = insts
-                rs' = filter (\(inst_id, _, _, _, _, _) -> inst_id == sel_id) rs
-            i' <- rsEntryToInst i bypass
+            let rs' = delete (head insts) rs
+            traceM $ "rs': " ++ show rs'
+            i' <- rsEntryToInst (head insts) bypass
             return ((rs', busy, (n - 1) `mod` size), Just i')
           else do
             simData.issueStalledCount += 1

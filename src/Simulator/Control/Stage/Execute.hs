@@ -18,8 +18,7 @@ import Simulator.Control.BranchPrediction
 
 scalarExecute :: IssuedData -> ProcessorState ExecutedData
 scalarExecute (Nothing                            ) = return Nothing
-scalarExecute (Just (inst_id, Instruction c i co, _)) = do simData.insts += 1
-                                                           simData.cycles += (c - 1)
+scalarExecute (Just (inst_id, Instruction c i co, _)) = do simData.cycles += (c - 1)
                                                            i' <- execute inst_id i co
                                                            return . Just $ i'
 
@@ -45,7 +44,6 @@ pipelinedExecute' :: ProcessorState () -> ProcessorState () -> IssuedData
                   -> ProcessorState (Either IssuedData ExecutedData)
 pipelinedExecute' _     _        (Nothing                              ) = return . Right $ Nothing
 pipelinedExecute' _     continue (Just (inst_id, Instruction 1 i co, _)) = do
-  simData.insts += 1
   continue
   (inst_id', i', inv) <- execute inst_id i co
   b <- use $ options.bypassEnabled
@@ -66,7 +64,6 @@ subPipelinedExecute m_inst (index, ps) = do
       executeStage.subPipeline %= (update index ps')
       return . Right $ Nothing
     Just (Right (inst_id, i, co, rs)) -> do
-      simData.insts += 1
       let ps'' = filter (\(_, Instruction _ is _, _) -> i /= is) ps'
       executeStage.subPipeline %= (update index ps'')
       (inst_id', i', inv) <- execute inst_id i co

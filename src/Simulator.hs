@@ -51,6 +51,9 @@ optionList
     , Option ['r'] ["rob_size"]
       (ReqArg (\n opts -> opts { _robSize = read n }) "1,2,..")
       "Sets the number of entries in the reorder buffer."
+    , Option []    ["nehalem"]
+      (NoArg (\_ -> nehalemOptions ))
+      "Uses the default options for an Intel nehalem type processor."
     , Option []    ["help"]
       (NoArg (\opts -> opts { help = True }))
       "Prints this help message."

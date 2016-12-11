@@ -4,6 +4,7 @@ module Simulator.Simulator
   ) where
 
 import System.IO
+import Data.Maybe
 import Control.Lens
 import Control.Monad (forever)
 import Control.Monad.State
@@ -84,12 +85,11 @@ pipelinedProcessor
   where checkForInvalidation :: ProcessorState ()
         checkForInvalidation = do
           i <- use invalidate
-          n <- use $ options.noEUs
           when i $ do
             decInputLatches          .= Left Nothing
             issInputLatches          .= Left Nothing
             exeInputLatches          .= Left Nothing
-            executeStage.subPipeline .= newSubPipeline n
+            executeStage.subPipeline .= newSubPipeline 1
             wrbInputLatches          .= Left Nothing
             invalidate               .= False
         unless :: Lens' Processor Bool -> ProcessorState () -> ProcessorState ()
@@ -103,7 +103,7 @@ superscalarProcessor
        updateStallCounts
        -- Get the value of the latches after the previous cycle.
        (Right d) <- use decInputLatches
-       r         <- use robInputLatches
+       (dd, ed)  <- use robInputLatches
        (Right e) <- use exeInputLatches
        (Right w) <- use wrbInputLatches
        -- Execute the Writeback stage unless it is stalled.
@@ -112,29 +112,36 @@ superscalarProcessor
        -- Execute the Execute stage unless it is stalled.
        unless (executeStage.isStalled) $ do
          e' <- superscalarExecute e
-         return ()
-         {- TODO:
-         case e' of
-           (Left    issuedData) -> do exeInputLatches .= Right issuedData
-                                      wrbInputLatches .= Right [ Nothing ] -- Change to robInputLatches
-           (Right executedData) -> do wrbInputLatches .= Right executedData
-         -}
+         let (i', ed') = unzip . map (\exec -> case exec of
+                                       Left    issuedData -> (issuedData, Nothing     )
+                                       Right executedData -> (Nothing   , executedData)) $ e'
+         (dd'', _) <- use robInputLatches
+         robInputLatches .= (dd'', ed')
+         exeInputLatches .= Right i'
+         -- TODO: Merge the issued data here with the issued data from the issue stage
+         --       as different EUs will be stalled at different times.
        -- Execute the Issue stage unless it is stalled.
        unless (issueStage.isStalled) $ do
          i' <- superscalarIssue
-         exeInputLatches .= Right i'
+         (Right i'') <- use exeInputLatches
+         let merge (Nothing, x) = x
+             merge (y      , _) = y
+             i'''  = map merge . zip i' $ i''
+         exeInputLatches .= Right i'''
        -- Execute the ReOrderBuffer stage unless it is stalled.
        unless (robStage.isStalled) $ do
-         (d', w') <- superscalarReOrderBuffer r
-         return ()
-         -- TODO:wrbInputLatches .= Right ed'
-         -- if dd' isJust then set robInputLatches to inlcude dd'
+         (dd', ed') <- superscalarReOrderBuffer (dd, ed)
+         wrbInputLatches .= Right ed'
+         when (dd' /= Nothing) $ do
+           (_, ed'') <- use robInputLatches
+           robInputLatches .= (fromJust dd', ed'')
        -- Execute the Decode stage unless it is stalled.
-       unless (decodeStage.isStalled) $ do
+       unlessi (decodeStage.isStalled) $ do
          d' <- superscalarDecode d
-         issInputLatches .= Right d'
+         (_, ed') <- use robInputLatches
+         robInputLatches .= (d', ed')
        -- Execute the Fetch stage unless it is stalled.
-       unless (fetchStage.isStalled) $ do
+       unlessi (fetchStage.isStalled) $ do
          f' <- superscalarFetch
          decInputLatches .= Right f'
        -- Set decode and reorder buffer latches to Nothing if the pipeline is
@@ -150,9 +157,13 @@ superscalarProcessor
             decInputLatches .= Left Nothing
             robInputLatches .= ([], ed)
             invalidate      .= False
-        unless :: Lens' Processor Bool -> ProcessorState () -> ProcessorState ()
-        unless cond m = do b <- use cond
-                           when (not b) m
+        unless  :: Lens' Processor Bool -> ProcessorState () -> ProcessorState ()
+        unless  cond m = do b <- use cond
+                            when (not b) m
+        unlessi :: Lens' Processor Bool -> ProcessorState () -> ProcessorState ()
+        unlessi cond m = do b <- use cond
+                            i <- use invalidate
+                            when (not b && not i) m
 
 updateStallCounts :: ProcessorState ()
 updateStallCounts = do

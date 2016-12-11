@@ -76,6 +76,23 @@ defaultOptions = Options
   , help               = False
   }
 
+nehalemOptions :: Options
+nehalemOptions = Options
+  { _procType          = Superscalar
+  , _bypassEnabled     = True
+  , _pipelinedEUs      = True
+  , _branchPrediction  = TwoLevel
+  , _branchHistoryBits = 16
+  , _noEUs             = 6
+  , _noInstsPerCycle   = 4
+  , _outOfOrder        = True
+  , _unAlignedIssue    = True
+  , _issueWindowSize   = 4
+  , _shelfSize         = 4
+  , _robSize           = 28
+  , help               = False
+  }
+
 -- |These types correspond to the types of the output data for each stage.
 type FetchedData  = Maybe (Word8, Word8, Word8, Word8, Control)
 type DecodedData  = Maybe InstructionReg
@@ -124,7 +141,7 @@ newProcessor insts opts = Processor
   , _robStage            = newReOrderBuffer
   , _issInputLatches     = latches (_procType opts)
   , _issueStage          = newIssue
-  , _exeInputLatches     = latches (_procType opts)
+  , _exeInputLatches     = eLatches (_procType opts)
   , _executeStage        = newExecute (_noEUs opts)
   , _wrbInputLatches     = latches (_procType opts)
   , _writebackStage      = newWriteback
@@ -141,9 +158,11 @@ newProcessor insts opts = Processor
   , _halted              = False
   , _options             = opts
   }
-  where latches Superscalar = Right . replicate (_noInstsPerCycle opts) $ Nothing
-        latches _           = Left Nothing
-        rs                  = newReservationStation (min (_shelfSize opts) (_issueWindowSize opts))
+  where eLatches Superscalar = Right . replicate (_noEUs opts) $ Nothing
+        eLatches _           = Left Nothing
+        latches  Superscalar = Right . replicate (_noInstsPerCycle opts) $ Nothing
+        latches  _           = Left Nothing
+        rs                   = newReservationStation (min (_shelfSize opts) (_issueWindowSize opts))
 
 -- Define the type of functions that operate on the processor.
 type ProcessorState a = StateT Processor IO a

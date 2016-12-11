@@ -9,6 +9,8 @@ import Data.Maybe
 import Control.Lens
 import Control.Monad
 
+import Debug.Trace
+
 import Simulator.Data.Processor
 
 superscalarReOrderBuffer :: ([ DecodedData ], [ ExecutedData ])
@@ -55,18 +57,23 @@ updateInsts ((inst_id, value, inv):is) = do
         else (iid, t, r, v, valid, c)
       rob' = map updateEntry rob
       invalidate (iid, t, r, v, _, c) = (iid, t, r, v, False, c)
-      (Just index) = lookupIndex inst_id rob'
+      (Just index) = trace ("(" ++ show inst_id ++ ", " ++ show value ++ "," ++ show inv ++ ")") $ lookupIndex inst_id rob'
       before = take (index + 1) rob'
       after  = drop (index + 1) rob'
       after' = if inv then map invalidate after
                       else after
-  --If branch, update fetch stage pc and invalidate pipeline.
-  checkForBranch value inv --Possible error, multiple branches completing in the same cycle may overwrite the correct pc val.
+  -- If branch, update fetch stage pc and invalidate pipeline.
+  checkForBranch value inv
   robStage.buffer .= (before ++ after')
+  -- Update the contents of the reservation stations.
+  rss <- use reservationStations
+  let val = snd . fromMaybe (pc, 0) $ value
+  reservationStations .= map (updatePointerValues (inst_id, val)) rss
   updateInsts is
   where checkForBranch (Nothing    ) _   = return ()
         checkForBranch (Just (r, v)) inv = do
-          when (r == pc && inv) $ do
+          i <- use invalidate
+          when (r == pc && inv && not i) $ do
             fetchStage.programCounter .= fromIntegral v
             invalidate .= True
             registerAliasTable .= newRegisterAliasTable
@@ -160,11 +167,3 @@ lookupIndex iid rob = lookupIndex' iid rob
         lookupIndex' iid ((inst_id, _, _, _, _, _):is)
           | iid == inst_id = Just $ length rob - (length is + 1)
           | otherwise      = lookupIndex' iid is
-
--- |This function returns Nothing if the reoder buffer contains a completed
---  instruction with the corresponding instruction id, Just instruction id
---  otherwise.
-containsInst :: Int -> [ ReOrderBufferEntry ] -> Maybe Int
-containsInst iid rob = if any (\(inst_id, _, _, _, _, c) -> iid == inst_id && c) rob
-                     then Nothing
-                     else Just iid
