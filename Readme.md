@@ -7,6 +7,9 @@
 * Static, saturating counter and two level adaptive branch prediction.
 * Execution unit bypassing.
 * Execution unit sub-pipelining.
+* Multiple execution units.
+* Out of order execution.
+* Register renaming.
 
 ## TODO: ##
 
