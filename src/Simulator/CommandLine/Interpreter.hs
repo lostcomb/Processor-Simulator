@@ -75,7 +75,8 @@ interpret' step (WritebackI) = do liftIO . putStrLn $ "Writeback Stage:"
                                   liftIO . putStrLn $ "  Input: " ++ show input
 interpret' step (Set inst c) = setInstCycles inst c
 interpret' step (Get inst  ) = printInstCycles inst
-interpret' step (Latches   ) = do dec <- use decInputLatches
+interpret' step (Latches   ) = do pt  <- use $ options.procType
+                                  dec <- use decInputLatches
                                   rob <- use robInputLatches
                                   iss <- use issInputLatches
                                   exe <- use exeInputLatches
@@ -91,21 +92,24 @@ interpret' step (Latches   ) = do dec <- use decInputLatches
                                   liftIO . putStrLn $ "EXE: " ++ show executeStalled
                                   liftIO . putStr   . to_str $ exe
                                   liftIO . putStrLn $ arrow
-                                  issueStalled <- use $ issueStage.isStalled
-                                  liftIO . putStrLn $ "ISS: " ++ show issueStalled
-                                  liftIO . putStr   . to_str $ iss
-                                  liftIO . putStrLn $ arrow
-                                  robStalled <- use $ robStage.isStalled
-                                  liftIO . putStrLn $ "ROB: " ++ show robStalled
-                                  liftIO . putStrLn . unlines . map show . fst $ rob
-                                  liftIO . putStr   . unlines . map show . snd $ rob
-                                  liftIO . putStrLn $ arrow
+                                  if pt /= Superscalar then do
+                                    issueStalled <- use $ issueStage.isStalled
+                                    liftIO . putStrLn $ "ISS: " ++ show issueStalled
+                                    liftIO . putStr   . to_str $ iss
+                                    liftIO . putStrLn $ arrow
+                                  else do
+                                    robStalled <- use $ robStage.isStalled
+                                    liftIO . putStrLn $ "ROB: " ++ show robStalled
+                                    liftIO . putStrLn . unlines . map show . fst $ rob
+                                    liftIO . putStr   . unlines . map show . snd $ rob
+                                    liftIO . putStrLn $ arrow
                                   decodeStalled <- use $ decodeStage.isStalled
                                   liftIO . putStrLn $ "DEC: " ++ show decodeStalled
                                   liftIO . putStr   . to_str $ dec
                                   liftIO . putStrLn $ arrow
                                   fetchStalled <- use $ fetchStage.isStalled
-                                  liftIO . putStrLn $ "FET: " ++ show fetchStalled
+                                  fetchHalted  <- use $ fetchStage.halt
+                                  liftIO . putStrLn $ "FET: " ++ show fetchStalled ++ " halt: " ++ show fetchHalted
 interpret' step (Caches    ) = do btac_cache <- use $ btac
                                   liftIO . putStrLn $ "BTAC:"
                                   liftIO . putStrLn . show $ btac_cache

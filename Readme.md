@@ -10,12 +10,6 @@
 
 ## TODO: ##
 
-* Implement re-order buffer.
-* Implement out-of-order scheduling.
-* Implement multiple execution units.
-* Implement reservation stations.
-* Implement register re-naming.
-
 * Draw graphs for each of the simdata items that maintain a list of history.
 
 ## Experiments: ##

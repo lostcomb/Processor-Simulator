@@ -10,8 +10,6 @@ import Data.Maybe
 import Control.Lens
 import Control.Monad.State
 
-import Debug.Trace
-
 import Simulator.Data.Processor
 import Simulator.Data.Association
 
@@ -61,7 +59,6 @@ superscalarIssue = do (rs0:rss)  <- use $ reservationStations
                                            else takeWhile (ready bypass) window
           if not busy && length insts > 0 then do
             let rs' = delete (head insts) rs
-            traceM $ "rs': " ++ show rs'
             i' <- rsEntryToInst (head insts) bypass
             return ((rs', busy, (n - 1) `mod` size), Just i')
           else do

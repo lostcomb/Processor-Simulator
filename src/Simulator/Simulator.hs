@@ -118,8 +118,6 @@ superscalarProcessor
          (dd'', _) <- use robInputLatches
          robInputLatches .= (dd'', ed')
          exeInputLatches .= Right i'
-         -- TODO: Merge the issued data here with the issued data from the issue stage
-         --       as different EUs will be stalled at different times.
        -- Execute the Issue stage unless it is stalled.
        unless (issueStage.isStalled) $ do
          i' <- superscalarIssue
@@ -151,12 +149,25 @@ superscalarProcessor
        simData.cycles += 1
   where checkForInvalidation :: ProcessorState ()
         checkForInvalidation = do
-          i       <- use invalidate
-          (_, ed) <- use robInputLatches
+          i      <- use invalidate
+          n      <- use $ options.noInstsPerCycle
+          no_eus <- use $ options.noEUs
           when i $ do
-            decInputLatches .= Left Nothing
-            robInputLatches .= ([], ed)
+            -- Clear the latches.
+            decInputLatches .= Right (replicate n      Nothing)
+            robInputLatches .= ([], [])
+            exeInputLatches .= Right (replicate no_eus Nothing)
+            wrbInputLatches .= Right (replicate n      Nothing)
+            -- Reset the invalidate / halt flags.
             invalidate      .= False
+            fetchStage.halt .= False
+            -- Empty the reservation stations.
+            shelf_size        <- use $ options.shelfSize
+            issue_window_size <- use $ options.issueWindowSize
+            let rs = newReservationStation (min shelf_size issue_window_size)
+            reservationStations .= replicate no_eus rs
+            -- Empty the reorder buffer.
+            robStage.buffer .= []
         unless  :: Lens' Processor Bool -> ProcessorState () -> ProcessorState ()
         unless  cond m = do b <- use cond
                             when (not b) m

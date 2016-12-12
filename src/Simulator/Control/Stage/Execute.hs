@@ -149,7 +149,9 @@ execute inst_id i co = case i of
                        dataMem.item (fromIntegral ri + 2) .= b3
                        dataMem.item (fromIntegral ri + 3) .= b4
                        return (inst_id, Nothing, False)
-  (Halt        ) -> do halted .= True
+  (Halt        ) -> do pt <- use $ options.procType
+                       if pt /= Superscalar then halted .= True
+                                            else writebackStage.haltAfter .= Just inst_id
                        return (inst_id, Nothing, False)
 
 -- |This function updates the value at index @n@ with @val@.
