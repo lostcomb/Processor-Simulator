@@ -86,11 +86,17 @@ pipelinedProcessor
         checkForInvalidation = do
           i <- use invalidate
           when i $ do
+            fetchStage.stalled       .= newStalled
             decInputLatches          .= Left Nothing
+            decodeStage.stalled      .= newStalled
             issInputLatches          .= Left Nothing
+            issueStage.stalled       .= newStalled
             exeInputLatches          .= Left Nothing
+            executeStage.stalled     .= newStalled
             executeStage.subPipeline .= newSubPipeline 1
             wrbInputLatches          .= Left Nothing
+            writebackStage.stalled   .= newStalled
+            fetchStage.halt          .= False
             invalidate               .= False
         unless :: Lens' Processor Bool -> ProcessorState () -> ProcessorState ()
         unless cond m = do b <- use cond
@@ -158,6 +164,13 @@ superscalarProcessor
             robInputLatches .= ([], [])
             exeInputLatches .= Right (replicate no_eus Nothing)
             wrbInputLatches .= Right (replicate n      Nothing)
+            -- Clear the stalled flags.
+            fetchStage.stalled     .= newStalled
+            decodeStage.stalled    .= newStalled
+            robStage.stalled       .= newStalled
+            issueStage.stalled     .= newStalled
+            executeStage.stalled   .= newStalled
+            writebackStage.stalled .= newStalled
             -- Reset the invalidate / halt flags.
             invalidate      .= False
             fetchStage.halt .= False

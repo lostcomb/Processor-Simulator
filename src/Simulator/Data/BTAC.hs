@@ -70,8 +70,8 @@ getPC (Taken    pc _) = pc
 
 -- |This lens provides a getter and setter for the pattern history table.
 entry :: Word32 -> Lens' PatternHistory Saturation
-entry index = lens (\ph   -> Map.findWithDefault StronglyTaken index ph)
-                   (\ph s -> Map.insert index s ph                     )
+entry index = lens (\ph   -> Map.findWithDefault WeaklyTaken index ph)
+                   (\ph s -> Map.insert index s ph                   )
 
 -- |This lens provides a getter and setter for the branch target address and
 --  saturation tags/history register in the branch target address cache.
@@ -83,7 +83,7 @@ entry' pc def = lens (\sc   -> searchWithDefault def pc sc)
 -- |This lens provides a getter and setter for the branch target address and
 --  saturation tags in the branch target address cache.
 saturationEntry :: Word32 -> Lens' BTAC (Maybe Word32, Either Saturation Word32)
-saturationEntry pc = entry' pc (Nothing, Left StronglyTaken)
+saturationEntry pc = entry' pc (Nothing, Left WeaklyTaken)
 
 -- |This les provides a getter and setter for the branch target address and
 --  history register in the branch target address cache.

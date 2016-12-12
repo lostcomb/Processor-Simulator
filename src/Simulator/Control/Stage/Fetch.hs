@@ -17,7 +17,9 @@ scalarFetch :: ProcessorState FetchedData
 scalarFetch = fetch
 
 pipelinedFetch :: ProcessorState FetchedData
-pipelinedFetch = fetch
+pipelinedFetch = do h <- use $ fetchStage.halt
+                    if h then return Nothing
+                         else fetch
 
 superscalarFetch :: ProcessorState [ FetchedData ]
 superscalarFetch = do inst_no <- use $ options.noInstsPerCycle
