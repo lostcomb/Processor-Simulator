@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Simulator.Control.Stage.Writeback
   ( scalarWriteback
   , pipelinedWriteback
@@ -6,6 +7,7 @@ module Simulator.Control.Stage.Writeback
 
 import Data.Int
 import Data.Word
+import Data.Maybe
 import Control.Lens
 import Control.Monad
 import Control.Monad.State
@@ -19,19 +21,29 @@ pipelinedWriteback :: ExecutedData -> ProcessorState ()
 pipelinedWriteback = writeback
 
 superscalarWriteback :: [ ExecutedData ] -> ProcessorState ()
-superscalarWriteback = undefined
+superscalarWriteback = mapM_ writeback
 
 writeback :: ExecutedData -> ProcessorState ()
 writeback (Nothing) = return ()
-writeback (Just  d) = do regFile.regVal pc += instLength
+writeback (Just  d) = do simData.insts += 1
+                         regFile.regVal pc += instLength
                          case d of
-                           (Just (r, v), inv) -> do
+                           (inst_id, Just (r, v), inv) -> do
+                             checkForHalt inst_id
                              regFile.regVal  r .= v
-                             regFile.regFlag r -= 1
+                             pt <- use $ options.procType
+                             if pt /= Superscalar then do
+                               regFile.regFlag r -= 1
+                              else do
+                                -- Update the register alias table if this
+                                -- instruction is the last to modify a register.
+                                s <- use $ registerAliasTable.status r
+                                when (fromMaybe (-1) s == inst_id) $ do
+                                  registerAliasTable.status r .= Nothing
                              checkForInvalidation inv $ fromIntegral v
-                           (Nothing    , inv) -> do
+                           (inst_id, Nothing    , inv) -> do
+                             checkForHalt inst_id
                              pc_val <- use $ regFile.regVal pc
-                             regFile.regFlag pc -= 1
                              checkForInvalidation inv $ fromIntegral pc_val
 
 checkForInvalidation :: Bool -> Word32 -> ProcessorState ()
@@ -39,6 +51,14 @@ checkForInvalidation inv v = when inv $ do
   fetchStage.programCounter .= v
   invalidate .= True
   cleanRegisters
+  registerAliasTable .= newRegisterAliasTable
+
+checkForHalt :: Int -> ProcessorState ()
+checkForHalt iid = do
+  ha <- use $ writebackStage.haltAfter
+  case ha of
+    Just inst_id -> when (iid == inst_id) $ halted .= True
+    Nothing      -> return ()
 
 cleanRegisters :: ProcessorState ()
 cleanRegisters = mapM_ (\r -> regFile.regFlag r .= clean) [(minBound::Register)..]

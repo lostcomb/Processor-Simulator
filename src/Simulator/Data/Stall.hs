@@ -10,11 +10,12 @@ module Simulator.Data.Stall
 import Control.Lens
 
 data Stalled = Stalled
-  { _byFetch     :: Bool
-  , _byDecode    :: Bool
-  , _byIssue     :: Bool
-  , _byExecute   :: Bool
-  , _byWriteback :: Bool
+  { _byFetch         :: Bool
+  , _byDecode        :: Bool
+  , _byReOrderBuffer :: Bool
+  , _byIssue         :: Bool
+  , _byExecute       :: Bool
+  , _byWriteback     :: Bool
   }
   deriving (Show, Eq, Read)
 
@@ -23,9 +24,10 @@ makeLenses ''Stalled
 
 newStalled :: Stalled
 newStalled = Stalled
-  { _byFetch     = False
-  , _byDecode    = False
-  , _byIssue     = False
-  , _byExecute   = False
-  , _byWriteback = False
+  { _byFetch         = False
+  , _byDecode        = False
+  , _byReOrderBuffer = False
+  , _byIssue         = False
+  , _byExecute       = False
+  , _byWriteback     = False
   }

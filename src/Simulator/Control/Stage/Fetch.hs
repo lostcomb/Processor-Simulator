@@ -20,7 +20,11 @@ pipelinedFetch :: ProcessorState FetchedData
 pipelinedFetch = fetch
 
 superscalarFetch :: ProcessorState [ FetchedData ]
-superscalarFetch = undefined
+superscalarFetch = do inst_no <- use $ options.noInstsPerCycle
+                      replicateM inst_no $ do
+                        h <- use $ fetchStage.halt
+                        if h then return Nothing
+                             else fetch
 
 fetch :: ProcessorState FetchedData
 fetch = do pc_val <- use $ fetchStage.programCounter
@@ -29,9 +33,9 @@ fetch = do pc_val <- use $ fetchStage.programCounter
            i3 <- use $ instMem.item (fromIntegral (pc_val + 2))
            i4 <- use $ instMem.item (fromIntegral (pc_val + 3))
            fetchStage.programCounter += instLength
-           -- Stall fetch stage if we read a HALT instruction.
+           -- Halt fetch stage if we read a HALT instruction.
            when ((i1 .&. 0xF0) `shiftR` 4 == 15) $
-             fetchStage.stalled.byFetch .= True
+             fetchStage.halt .= True
            c <- predict pc_val (i1, i2, i3, i4)
            -- If we predict that the branch will be taken, set the program
            -- counter to the target address.

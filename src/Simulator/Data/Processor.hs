@@ -11,6 +11,7 @@ module Simulator.Data.Processor
   , module Simulator.Data.Registers
   , module Simulator.Data.Instruction
   , module Simulator.Data.BTAC
+  , module Simulator.Data.ReservationStation
   ) where
 
 import Data.Int
@@ -28,6 +29,7 @@ import Simulator.Data.Simdata
 import Simulator.Data.Registers
 import Simulator.Data.Instruction
 import Simulator.Data.BTAC
+import Simulator.Data.ReservationStation
 
 data Type = Scalar
           | Pipelined
@@ -47,6 +49,11 @@ data Options = Options
   , _branchHistoryBits :: Word32
   , _noEUs             :: Int
   , _noInstsPerCycle   :: Int
+  , _outOfOrder        :: Bool
+  , _unAlignedIssue    :: Bool
+  , _issueWindowSize   :: Int
+  , _shelfSize         :: Int
+  , _robSize           :: Int
   , help               :: Bool
   }
 -- Let Template Haskell make the lenses.
@@ -61,14 +68,36 @@ defaultOptions = Options
   , _branchHistoryBits = 4
   , _noEUs             = 1
   , _noInstsPerCycle   = 1
+  , _outOfOrder        = False
+  , _unAlignedIssue    = False
+  , _issueWindowSize   = 4
+  , _shelfSize         = 4
+  , _robSize           = 28
+  , help               = False
+  }
+
+nehalemOptions :: Options
+nehalemOptions = Options
+  { _procType          = Superscalar
+  , _bypassEnabled     = True
+  , _pipelinedEUs      = True
+  , _branchPrediction  = TwoLevel
+  , _branchHistoryBits = 16
+  , _noEUs             = 6
+  , _noInstsPerCycle   = 4
+  , _outOfOrder        = True
+  , _unAlignedIssue    = True
+  , _issueWindowSize   = 4
+  , _shelfSize         = 4
+  , _robSize           = 28
   , help               = False
   }
 
 -- |These types correspond to the types of the output data for each stage.
 type FetchedData  = Maybe (Word8, Word8, Word8, Word8, Control)
 type DecodedData  = Maybe InstructionReg
-type IssuedData   = Maybe (InstructionVal, [ Register ])
-type ExecutedData = Maybe (Maybe (Register, Int32), Bool)
+type IssuedData   = Maybe (Int, InstructionVal, [ Register ])
+type ExecutedData = Maybe (Int, Maybe (Register, Int32), Bool)
 
 -- Define types for memories.
 type InstMem = Seq Word8
@@ -76,53 +105,64 @@ type DataMem = Map Word32 Word8
 
 -- |This data type contains all of the processors state.
 data Processor = Processor
-  { _fetchStage      :: Fetch
-  , _decInputLatches :: Either FetchedData [ FetchedData ]
-  , _decodeStage     :: Decode
-  , _issInputLatches :: Either DecodedData [ DecodedData ]
-  , _issueStage      :: Issue
-  , _exeInputLatches :: Either IssuedData [ IssuedData ]
-  , _executeStage    :: Execute
-  , _wrbInputLatches :: Either ExecutedData [ ExecutedData ]
-  , _writebackStage  :: Writeback
-  , _invalidate      :: Bool
-  , _btac            :: BTAC
-  , _patternHistory  :: PatternHistory
-  , _instMem         :: InstMem
-  , _dataMem         :: DataMem
-  , _regFile         :: RegisterFile
-  , _simData         :: Simdata
-  , _instCycles      :: Inst Register -> Int
-  , _halted          :: Bool
-  , _options         :: Options
+  { _fetchStage          :: Fetch
+  , _decInputLatches     :: Either FetchedData [ FetchedData ]
+  , _decodeStage         :: Decode
+  , _robInputLatches     :: ([ DecodedData ], [ ExecutedData ])
+  , _robStage            :: ReOrderBuffer
+  , _issInputLatches     :: Either DecodedData [ DecodedData ]
+  , _issueStage          :: Issue
+  , _exeInputLatches     :: Either IssuedData [ IssuedData ]
+  , _executeStage        :: Execute
+  , _wrbInputLatches     :: Either ExecutedData [ ExecutedData ]
+  , _writebackStage      :: Writeback
+  , _invalidate          :: Bool
+  , _btac                :: BTAC
+  , _patternHistory      :: PatternHistory
+  , _reservationStations :: [ ReservationStation ]
+  , _registerAliasTable  :: RegisterAliasTable
+  , _instMem             :: InstMem
+  , _dataMem             :: DataMem
+  , _regFile             :: RegisterFile
+  , _simData             :: Simdata
+  , _instCycles          :: Inst Register -> Int
+  , _halted              :: Bool
+  , _options             :: Options
   }
 -- Let Template Haskell make the lenses.
 makeLenses ''Processor
 
 newProcessor :: [ Word8 ] -> Options -> Processor
 newProcessor insts opts = Processor
-  { _fetchStage      = newFetch
-  , _decInputLatches = latches (_procType opts)
-  , _decodeStage     = newDecode
-  , _issInputLatches = latches (_procType opts)
-  , _issueStage      = newIssue
-  , _exeInputLatches = latches (_procType opts)
-  , _executeStage    = newExecute
-  , _wrbInputLatches = latches (_procType opts)
-  , _writebackStage  = newWriteback
-  , _invalidate      = False
-  , _btac            = newBTAC
-  , _patternHistory  = newPatternHistory
-  , _instMem         = Seq.fromList insts
-  , _dataMem         = Map.empty
-  , _regFile         = newRegFile
-  , _simData         = newSimdata
-  , _instCycles      = defaultCycles
-  , _halted          = False
-  , _options         = opts
+  { _fetchStage          = newFetch
+  , _decInputLatches     = latches (_procType opts)
+  , _decodeStage         = newDecode
+  , _robInputLatches     = ([], [])
+  , _robStage            = newReOrderBuffer
+  , _issInputLatches     = latches (_procType opts)
+  , _issueStage          = newIssue
+  , _exeInputLatches     = eLatches (_procType opts)
+  , _executeStage        = newExecute (_noEUs opts)
+  , _wrbInputLatches     = latches (_procType opts)
+  , _writebackStage      = newWriteback
+  , _invalidate          = False
+  , _btac                = newBTAC
+  , _patternHistory      = newPatternHistory
+  , _reservationStations = replicate (_noEUs opts) rs
+  , _registerAliasTable  = newRegisterAliasTable
+  , _instMem             = Seq.fromList insts
+  , _dataMem             = Map.empty
+  , _regFile             = newRegFile
+  , _simData             = newSimdata
+  , _instCycles          = defaultCycles
+  , _halted              = False
+  , _options             = opts
   }
-  where latches Superscalar = Right . replicate (_noInstsPerCycle opts) $ Nothing
-        latches _           = Left Nothing
+  where eLatches Superscalar = Right . replicate (_noEUs opts) $ Nothing
+        eLatches _           = Left Nothing
+        latches  Superscalar = Right . replicate (_noInstsPerCycle opts) $ Nothing
+        latches  _           = Left Nothing
+        rs                   = newReservationStation (min (_shelfSize opts) (_issueWindowSize opts))
 
 -- Define the type of functions that operate on the processor.
 type ProcessorState a = StateT Processor IO a

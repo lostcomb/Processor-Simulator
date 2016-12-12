@@ -2,13 +2,31 @@
 
 ## TODO: Compile instructions. ##
 
+## Features Implemented: ##
+
+* Static, saturating counter and two level adaptive branch prediction.
+* Execution unit bypassing.
+* Execution unit sub-pipelining.
+* Multiple execution units.
+* Out of order execution.
+* Register renaming.
+
 ## TODO: ##
 
-* Implement re-order buffer.
-* Implement out-of-order scheduling.
-* Implement multiple execution units.
-* Implement reservation stations.
-* Implement register re-naming.
+* Draw graphs for each of the simdata items that maintain a list of history.
+
+## Experiments: ##
+
+* Try branch prediction methods against input that has different sequences of
+  branches => two level should perform better than saturating which should
+  perform better than static.
+* Try a program which introduces dependencies and show that bypassing is effective
+  when there are relatively few.
+* Try a similar program to above but with sets of dependent instructions => out
+  of order execution should make this program perform as fast as if there were
+  no dependencies.
+* Try a program that uses more or less only one register vs. the same program
+  but using all of the registers => register renaming should fix this.
 
 # ISA Reference: #
 

@@ -6,6 +6,7 @@ import Data.Map (toList)
 import Data.Bits
 import Data.List
 import Data.Word
+import Text.Printf
 import System.Exit
 import Control.Lens
 import Control.Monad.State
@@ -28,7 +29,10 @@ interpret' step (Continue ) = do whileM_ (liftM not $ use halted)
                                  liftIO $ putStrLn "Execution Halted."
 interpret' step (Registers ) = printRegisters
 interpret' step (Memory    ) = printMemory
-interpret' step (Stats     ) = printStatistics
+interpret' step (Stats     ) = do simData <- use $ simData
+                                  liftIO . putStrLn . toString $ simData
+                                  liftIO . putStrLn $  "Issue rate (instructions / cycle): "
+                                                    ++ printf "%.1f" (issueRate simData)
 interpret' step (FetchI    ) = do liftIO . putStrLn $ "Fetch Stage:"
                                   stall   <- use $ fetchStage.stalled
                                   liftIO . putStrLn $ "  Stalled: " ++ show stall
@@ -45,13 +49,12 @@ interpret' step (DecodeI   ) = do liftIO . putStrLn $ "Decode Stage:"
                                   liftIO . putStrLn $ "  Input: " ++ show input
                                   output  <- use $ issInputLatches
                                   liftIO . putStrLn $ "  Output: " ++ show output
+interpret' step (ReOrderI  ) = do liftIO . putStrLn $ "ReOrder Stage:"
+                                  stall   <- use $ robStage.stalled
+                                  liftIO . putStrLn $ "  Stalled: " ++ show stall
 interpret' step (IssueI    ) = do liftIO . putStrLn $ "Issue Stage:"
                                   stall   <- use $ issueStage.stalled
                                   liftIO . putStrLn $ "  Stalled: " ++ show stall
-                                  i_win   <- use $ issueStage.issueWindow
-                                  liftIO . putStrLn $ "  Issue Window: " ++ show i_win
-                                  e_win   <- use $ issueStage.execWindow
-                                  liftIO . putStrLn $ "  Exec Window: " ++ show e_win
                                   input  <- use $ issInputLatches
                                   liftIO . putStrLn $ "  Input: " ++ show input
                                   output  <- use $ exeInputLatches
@@ -72,37 +75,53 @@ interpret' step (WritebackI) = do liftIO . putStrLn $ "Writeback Stage:"
                                   liftIO . putStrLn $ "  Input: " ++ show input
 interpret' step (Set inst c) = setInstCycles inst c
 interpret' step (Get inst  ) = printInstCycles inst
-interpret' step (Latches   ) = do dec <- use decInputLatches
+interpret' step (Latches   ) = do pt  <- use $ options.procType
+                                  dec <- use decInputLatches
+                                  rob <- use robInputLatches
                                   iss <- use issInputLatches
                                   exe <- use exeInputLatches
                                   wrb <- use wrbInputLatches
-                                  let max_len = maximum . map length
-                                              $ [ show dec, show iss, show exe, show wrb ]
-                                      arrow   = replicate (max_len `div` 2) ' ' ++ "^"
-                                  liftIO . putStrLn $ "WRB: " ++ show wrb
+                                  let arrow   = replicate 5 ' ' ++ "^"
+                                      to_str (Left  l) = show l ++ "\n"
+                                      to_str (Right r) = unlines . map show $ r
                                   writebackStalled <- use $ writebackStage.isStalled
-                                  liftIO . putStrLn $ "WRB STALLED: " ++ show writebackStalled
+                                  liftIO . putStrLn $ "WRB: " ++ show writebackStalled
+                                  liftIO . putStr   . to_str $ wrb
                                   liftIO . putStrLn $ arrow
-                                  liftIO . putStrLn $ "EXE: " ++ show exe
                                   executeStalled <- use $ executeStage.isStalled
-                                  liftIO . putStrLn $ "EXE STALLED: " ++ show executeStalled
+                                  liftIO . putStrLn $ "EXE: " ++ show executeStalled
+                                  liftIO . putStr   . to_str $ exe
                                   liftIO . putStrLn $ arrow
-                                  liftIO . putStrLn $ "ISS: " ++ show iss
-                                  issueStalled <- use $ issueStage.isStalled
-                                  liftIO . putStrLn $ "ISS STALLED: " ++ show issueStalled
-                                  liftIO . putStrLn $ arrow
-                                  liftIO . putStrLn $ "DEC: " ++ show dec
+                                  if pt /= Superscalar then do
+                                    issueStalled <- use $ issueStage.isStalled
+                                    liftIO . putStrLn $ "ISS: " ++ show issueStalled
+                                    liftIO . putStr   . to_str $ iss
+                                    liftIO . putStrLn $ arrow
+                                  else do
+                                    robStalled <- use $ robStage.isStalled
+                                    liftIO . putStrLn $ "ROB: " ++ show robStalled
+                                    liftIO . putStrLn . unlines . map show . fst $ rob
+                                    liftIO . putStr   . unlines . map show . snd $ rob
+                                    liftIO . putStrLn $ arrow
                                   decodeStalled <- use $ decodeStage.isStalled
-                                  liftIO . putStrLn $ "DEC STALLED: " ++ show decodeStalled
+                                  liftIO . putStrLn $ "DEC: " ++ show decodeStalled
+                                  liftIO . putStr   . to_str $ dec
                                   liftIO . putStrLn $ arrow
                                   fetchStalled <- use $ fetchStage.isStalled
-                                  liftIO . putStrLn $ "FET STALLED: " ++ show fetchStalled
+                                  fetchHalted  <- use $ fetchStage.halt
+                                  liftIO . putStrLn $ "FET: " ++ show fetchStalled ++ " halt: " ++ show fetchHalted
 interpret' step (Caches    ) = do btac_cache <- use $ btac
                                   liftIO . putStrLn $ "BTAC:"
                                   liftIO . putStrLn . show $ btac_cache
                                   pattern_hist <- use $ patternHistory
                                   liftIO . putStrLn $ "Pattern History:"
                                   liftIO . putStrLn . show $ pattern_hist
+interpret' step (ROB       ) = do rob <- use $ robStage.buffer
+                                  liftIO . putStrLn $ "Reorder Buffer:"
+                                  liftIO . putStrLn . unlines . map show $ rob
+                                  liftIO . putStrLn $ "Reservation Stations:"
+                                  rss <- use reservationStations
+                                  liftIO . putStrLn . unlines . map show $ rss
 interpret' step (Quit      ) = liftIO exitSuccess
 
 setInstCycles :: String -> Int -> ProcessorState ()
@@ -192,23 +211,6 @@ printMemory = do mem <- use $ dataMem
                 v_s = show val
                 padding = replicate (21 - length i_s - length v_s) ' '
         genMem _                = ""
-
-printStatistics :: ProcessorState ()
-printStatistics = do cs <- use $ simData.cycles
-                     is <- use $ simData.insts
-                     f <- use $ simData.fetchStalledCount
-                     d <- use $ simData.decodeStalledCount
-                     i <- use $ simData.issueStalledCount
-                     e <- use $ simData.executeStalledCount
-                     w <- use $ simData.writebackStalledCount
-                     liftIO $ putStrLn $ "Cycles: "                  ++ show cs
-                     liftIO $ putStrLn $ "Instructions: "            ++ show is
-                     liftIO $ putStrLn $ "Fetch stalled count: "     ++ show f
-                     liftIO $ putStrLn $ "Decode stalled count: "    ++ show d
-                     liftIO $ putStrLn $ "Issue stalled count: "     ++ show i
-                     liftIO $ putStrLn $ "Execute stalled count: "   ++ show e
-                     liftIO $ putStrLn $ "Writeback stalled count: " ++ show w
-
 
 chunksOf :: Int -> [ a ] -> [ [ a ] ]
 chunksOf n xs

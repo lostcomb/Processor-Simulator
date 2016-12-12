@@ -9,6 +9,7 @@ data Command = Step Int
              | Stats
              | FetchI
              | DecodeI
+             | ReOrderI
              | IssueI
              | ExecuteI
              | WritebackI
@@ -16,5 +17,6 @@ data Command = Step Int
              | Get String
              | Latches
              | Caches
+             | ROB
              | Quit
              deriving (Show, Eq, Read)
