@@ -8,7 +8,6 @@ module Compiler.Analyser
 import Compiler.SyntaxTree
 
 import Data.List (foldl')
-import Control.Monad ((<$!>))
 
 type ArrayT        = (Identifier, Type )
 type VariableT     = (Identifier, Type )
@@ -112,3 +111,18 @@ checkType a b = if a == b
              ++ " is not equal to "
              ++ show b
              ++ "."
+
+
+-- Taken from the source code for Control.Monad. This is not available in the
+-- version base that the lab machines use.
+infixl 4 <$!>
+
+-- | Strict version of 'Data.Functor.<$>'.
+--
+-- @since 4.8.0.0
+(<$!>) :: Monad m => (a -> b) -> m a -> m b
+{-# INLINE (<$!>) #-}
+f <$!> m = do
+  x <- m
+  let z = f x
+  z `seq` return z

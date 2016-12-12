@@ -10,6 +10,7 @@ import Text.Parsec.Token
 import Text.Parsec.Error
 import Text.Parsec.String (Parser)
 import Text.Parsec.Language (emptyDef)
+import Control.Applicative (pure, (<$), (<$>), (<*), (<*>), (*>))
 
 import Simulator.CommandLine.Command
 

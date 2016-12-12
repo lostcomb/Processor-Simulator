@@ -8,6 +8,7 @@ import Data.Int
 import Data.Maybe
 import Control.Lens
 import Control.Monad.State
+import Control.Applicative (pure, (<$), (<$>), (<*), (<*>), (*>))
 
 import Simulator.Data.Processor
 

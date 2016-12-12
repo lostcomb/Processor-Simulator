@@ -55,4 +55,5 @@ executable aca-processor-simulator
                        mtl,
                        parsec,
                        filepath,
-                       bytestring
+                       bytestring,
+                       transformers

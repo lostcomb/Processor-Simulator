@@ -12,6 +12,7 @@ import Text.Parsec.Token
 import Text.Parsec.String (Parser)
 import Text.Parsec.Language (emptyDef)
 import Data.Functor.Identity
+import Control.Applicative (pure, (<$), (<$>), (<*), (<*>), (*>))
 
 lexer = makeTokenParser languageDef
 languageDef =  emptyDef
