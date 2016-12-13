@@ -86,18 +86,20 @@ pipelinedProcessor
         checkForInvalidation = do
           i <- use invalidate
           when i $ do
-            fetchStage.stalled       .= newStalled
-            decInputLatches          .= Left Nothing
-            decodeStage.stalled      .= newStalled
-            issInputLatches          .= Left Nothing
-            issueStage.stalled       .= newStalled
-            exeInputLatches          .= Left Nothing
-            executeStage.stalled     .= newStalled
-            executeStage.subPipeline .= newSubPipeline 1
-            wrbInputLatches          .= Left Nothing
-            writebackStage.stalled   .= newStalled
-            fetchStage.halt          .= False
-            invalidate               .= False
+            fetchStage.stalled        .= newStalled
+            decInputLatches           .= Left Nothing
+            decodeStage.stalled       .= newStalled
+            issInputLatches           .= Left Nothing
+            issueStage.stalled        .= newStalled
+            exeInputLatches           .= Left Nothing
+            executeStage.stalled      .= newStalled
+            executeStage.subPipeline  .= newSubPipeline 1
+            executeStage.bypassValues .= Nothing
+            wrbInputLatches           .= Left Nothing
+            writebackStage.stalled    .= newStalled
+            writebackStage.haltAfter  .= Nothing
+            fetchStage.halt           .= False
+            invalidate                .= False
         unless :: Lens' Processor Bool -> ProcessorState () -> ProcessorState ()
         unless cond m = do b <- use cond
                            i <- use invalidate
@@ -163,6 +165,8 @@ superscalarProcessor
             decInputLatches .= Right (replicate n      Nothing)
             robInputLatches .= ([], [])
             exeInputLatches .= Right (replicate no_eus Nothing)
+            executeStage.subPipeline .= newSubPipeline no_eus
+            executeStage.bypassValues .= Nothing
             wrbInputLatches .= Right (replicate n      Nothing)
             -- Clear the stalled flags.
             fetchStage.stalled     .= newStalled
@@ -172,15 +176,17 @@ superscalarProcessor
             executeStage.stalled   .= newStalled
             writebackStage.stalled .= newStalled
             -- Reset the invalidate / halt flags.
-            invalidate      .= False
-            fetchStage.halt .= False
+            invalidate               .= False
+            fetchStage.halt          .= False
+            writebackStage.haltAfter .= Nothing
             -- Empty the reservation stations.
-            shelf_size        <- use $ options.shelfSize
-            issue_window_size <- use $ options.issueWindowSize
-            let rs = newReservationStation (min shelf_size issue_window_size)
+            shelf_size <- use $ options.shelfSize
+            let rs = newReservationStation shelf_size
             reservationStations .= replicate no_eus rs
             -- Empty the reorder buffer.
             robStage.buffer .= []
+            -- Empty the register alias table.
+            registerAliasTable .= newRegisterAliasTable
         unless  :: Lens' Processor Bool -> ProcessorState () -> ProcessorState ()
         unless  cond m = do b <- use cond
                             when (not b) m

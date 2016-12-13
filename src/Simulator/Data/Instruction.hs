@@ -41,15 +41,13 @@ data Inst t where
 -- |This data type distinguished between a control instruction, store instruction
 --  and arithmetic / logic / load instructions.
 data InstType = Control
-              | Store
-              | Other
+              |  Other
               deriving (Show, Eq, Read)
 
 -- |This function returns the instruction type for the specified instruction.
 instType :: Inst Register -> InstType
 instType i
   | isJmp i || isBez i = Control
-  | isStm i            = Store
   | otherwise          = Other
 
 -- |This function returns true if the specified register is in the specified

@@ -136,9 +136,9 @@ getOperandPointers iid i = case i of
                          case s of
                            Just inst_id -> case lookupIndex inst_id rob of
                              Just index -> do
-                               let (_, _, _, v, _, valid, c) = rob !! index
-                               if valid && c then return (Nothing, fromJust v)
-                                             else return (Just inst_id, 0)
+                               let (_, _, _, v, _, _, c) = rob !! index
+                               if c then return (Nothing, fromJust v)
+                                    else return (Just inst_id, 0)
                              Nothing    -> return (Just inst_id, 0)
                            Nothing      -> do v <- use $ regFile.regVal r
                                               return (Nothing, v)

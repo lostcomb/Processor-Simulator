@@ -43,8 +43,6 @@ interpret' step (FetchI    ) = do liftIO . putStrLn $ "Fetch Stage:"
 interpret' step (DecodeI   ) = do liftIO . putStrLn $ "Decode Stage:"
                                   stall   <- use $ decodeStage.stalled
                                   liftIO . putStrLn $ "  Stalled: " ++ show stall
-                                  spec    <- use $ decodeStage.speculative
-                                  liftIO . putStrLn $ "  Speculative: " ++ show spec
                                   input  <- use $ decInputLatches
                                   liftIO . putStrLn $ "  Input: " ++ show input
                                   output  <- use $ issInputLatches
@@ -116,6 +114,9 @@ interpret' step (Caches    ) = do btac_cache <- use $ btac
                                   pattern_hist <- use $ patternHistory
                                   liftIO . putStrLn $ "Pattern History:"
                                   liftIO . putStrLn . show $ pattern_hist
+                                  rat <- use $ registerAliasTable
+                                  liftIO . putStrLn $ "Register Alias Table:"
+                                  liftIO . putStrLn . show $ rat
 interpret' step (ROB       ) = do rob <- use $ robStage.buffer
                                   liftIO . putStrLn $ "Reorder Buffer:"
                                   liftIO . putStrLn . unlines . map show $ rob

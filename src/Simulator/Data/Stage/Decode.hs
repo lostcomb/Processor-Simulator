@@ -6,13 +6,11 @@ module Simulator.Data.Stage.Decode
 import Simulator.Data.Stall
 
 data Decode = Decode
-  { _decodeStalled     :: Stalled
-  , _decodeSpeculative :: Bool
+  { _decodeStalled :: Stalled
   }
   deriving (Show, Eq, Read)
 
 newDecode :: Decode
 newDecode = Decode
-  { _decodeStalled     = newStalled
-  , _decodeSpeculative = False
+  { _decodeStalled = newStalled
   }

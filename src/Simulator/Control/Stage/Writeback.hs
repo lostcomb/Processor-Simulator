@@ -51,7 +51,6 @@ checkForInvalidation inv v = when inv $ do
   fetchStage.programCounter .= v
   invalidate .= True
   cleanRegisters
-  registerAliasTable .= newRegisterAliasTable
 
 checkForHalt :: Int -> ProcessorState ()
 checkForHalt iid = do

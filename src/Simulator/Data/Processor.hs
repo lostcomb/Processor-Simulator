@@ -162,7 +162,7 @@ newProcessor insts opts = Processor
         eLatches _           = Left Nothing
         latches  Superscalar = Right . replicate (_noInstsPerCycle opts) $ Nothing
         latches  _           = Left Nothing
-        rs                   = newReservationStation (min (_shelfSize opts) (_issueWindowSize opts))
+        rs                   = newReservationStation (_shelfSize opts)
 
 -- Define the type of functions that operate on the processor.
 type ProcessorState a = StateT Processor IO a
