@@ -1,5 +1,5 @@
 ; Define n
-LDC r1 #10
+LDC r1 #99
 ; Define 0
 LDC r2 #0
 ; Define 2
