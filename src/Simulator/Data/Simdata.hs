@@ -15,8 +15,9 @@ import Simulator.Data.Instruction
 data Simdata = Simdata
   -- Counts the number of cycles executed.
   { _cycles                :: Int
-  -- Counts the number of instrctions executed.
-  , _insts                 :: Int
+  -- Counts the number of instructions executed.
+  , _issInsts              :: Int
+  , _wrbInsts              :: Int
   -- Counts the number of instructions executed in each cycle during execution.
   , _instsPerCycle         :: [ Int ]
   -- Counts the number of cycles each stage is stalled during execution.
@@ -42,7 +43,8 @@ makeLenses ''Simdata
 newSimdata :: Simdata
 newSimdata = Simdata
   { _cycles                = 0
-  , _insts                 = 0
+  , _issInsts              = 0
+  , _wrbInsts              = 0
   , _instsPerCycle         = []
   , _fetchStalledCount     = 0
   , _decodeStalledCount    = 0
@@ -58,17 +60,27 @@ newSimdata = Simdata
 
 -- |This function returns the stringular representation of the simulation data.
 toString :: Simdata -> String
-toString d = "Cycles: "             ++ show (_cycles                d)              ++ "\n" ++
-             "Instructions: "       ++ show (_insts                 d)              ++ "\n" ++
-             "Stalled Counts: (F, " ++ show (_fetchStalledCount     d) ++ ") "      ++
-                             "(D, " ++ show (_decodeStalledCount    d) ++ ") "      ++
-                             "(R, " ++ show (_robStalledCount       d) ++ ") "      ++
-                             "(I, " ++ show (_issueStalledCount     d) ++ ") "      ++
-                             "(E, " ++ show (_executeStalledCount   d) ++ ") "      ++
-                             "(W, " ++ show (_writebackStalledCount d) ++ ")"       ++ "\n" ++
-             "Branch predictions: " ++ show (_hitPredictions        d) ++ " hits, " ++
-                                       show (_misPredictions        d) ++ " misses"
+toString d = "Cycles: "               ++ show (_cycles                d)              ++ "\n" ++
+             "Issued Instructions: "  ++ show (_issInsts              d)              ++ "\n" ++
+             "Written Instructions: " ++ show (_wrbInsts              d)              ++ "\n" ++
+             "Stalled Counts: (F, "   ++ show (_fetchStalledCount     d) ++ ") "      ++
+                             "(D, "   ++ show (_decodeStalledCount    d) ++ ") "      ++
+                             "(R, "   ++ show (_robStalledCount       d) ++ ") "      ++
+                             "(I, "   ++ show (_issueStalledCount     d) ++ ") "      ++
+                             "(E, "   ++ show (_executeStalledCount   d) ++ ") "      ++
+                             "(W, "   ++ show (_writebackStalledCount d) ++ ")"       ++ "\n" ++
+             "Branch predictions: "   ++ show (_hitPredictions        d) ++ " hits, " ++
+                                         show (_misPredictions        d) ++ " misses"
 
 -- |This function returns the issue rate that the simulation data defines.
 issueRate :: Simdata -> Float
-issueRate d = fromIntegral (_insts d) / fromIntegral (_cycles d)
+issueRate d = fromIntegral (_issInsts d) / fromIntegral (_cycles d)
+
+-- |This function returns the writeback rate that the simulation data defines.
+writebackRate :: Simdata -> Float
+writebackRate d = fromIntegral (_wrbInsts d) / fromIntegral (_cycles d)
+
+-- |This function returns teh branch prediction rate that the simulation data
+--  defines.
+branchPredictionRate :: Simdata -> Float
+branchPredictionRate d = fromIntegral (_hitPredictions d) / fromIntegral (length $ _predictions d)

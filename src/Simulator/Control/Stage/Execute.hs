@@ -64,11 +64,14 @@ subPipelinedExecute m_inst (index, ps) = do
       executeStage.subPipeline %= (update index ps')
       return . Right $ Nothing
     Just (Right (inst_id, i, co, rs)) -> do
-      let ps'' = filter (\(_, Instruction _ is _, _) -> i /= is) ps'
+      pt <- use $ options.procType
+      let ps'' = if pt == Superscalar
+                   then filter (\(iid, _, _) -> iid /= inst_id) ps'
+                   else filter (\(_, Instruction _ is _, _) -> i /= is) ps'
       executeStage.subPipeline %= (update index ps'')
       (inst_id', i', inv) <- execute inst_id i co
-      b <- use $ options.bypassEnabled
-      let d = or . map (usesRegister i' . (\(_, _, a) -> a)) $ ps''
+      b  <- use $ options.bypassEnabled
+      let d = pt /= Superscalar && (or . map (usesRegister i' . (\(_, _, a) -> a)) $ ps'')
       when (b && not d) $
         executeStage.bypassValues ++?= (Just . instToBypass inst_id) i'
       return . Right . Just $ (inst_id', i', inv)

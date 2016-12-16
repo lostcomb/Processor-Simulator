@@ -25,7 +25,7 @@ superscalarWriteback = mapM_ writeback
 
 writeback :: ExecutedData -> ProcessorState ()
 writeback (Nothing) = return ()
-writeback (Just  d) = do simData.insts += 1
+writeback (Just  d) = do simData.wrbInsts += 1
                          regFile.regVal pc += instLength
                          case d of
                            (inst_id, Just (r, v), inv) -> do

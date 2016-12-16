@@ -100,23 +100,25 @@ checkForDependency i speculative bypass = case i of
                      return $ isDirty f && b == Nothing
 
 fillInsts :: Inst Register -> Maybe [ (Int, Register, Int32) ] -> ProcessorState (Inst Int32)
-fillInsts i bypass = case i of
-  (Nop         ) -> return Nop
-  (Add rd ri rj) -> Add <$> stainReg rd <*> updateReg ri <*> updateReg rj
-  (Sub rd ri rj) -> Sub <$> stainReg rd <*> updateReg ri <*> updateReg rj
-  (Mul rd ri rj) -> Mul <$> stainReg rd <*> updateReg ri <*> updateReg rj
-  (Div rd ri rj) -> Div <$> stainReg rd <*> updateReg ri <*> updateReg rj
-  (And rd ri rj) -> And <$> stainReg rd <*> updateReg ri <*> updateReg rj
-  (Or  rd ri rj) -> Or  <$> stainReg rd <*> updateReg ri <*> updateReg rj
-  (Not rd ri   ) -> Not <$> stainReg rd <*> updateReg ri
-  (Jmp    ri   ) -> Jmp <$  stainReg pc <*> updateReg ri
-  (Bez    ri  o) -> Bez <$  stainReg pc <*> updateReg ri <*> return o
-  (Ceq rd ri rj) -> Ceq <$> stainReg rd <*> updateReg ri <*> updateReg rj
-  (Cgt rd ri rj) -> Cgt <$> stainReg rd <*> updateReg ri <*> updateReg rj
-  (Ldc rd     o) -> Ldc <$> stainReg rd                  <*> return o
-  (Ldm rd ri   ) -> Ldm <$> stainReg rd <*> updateReg ri
-  (Stm    ri rj) -> Stm <$>                 updateReg ri <*> updateReg rj
-  (Halt        ) -> return Halt
+fillInsts i bypass = do
+  simData.issInsts += 1
+  case i of
+    (Nop         ) -> return Nop
+    (Add rd ri rj) -> Add <$> stainReg rd <*> updateReg ri <*> updateReg rj
+    (Sub rd ri rj) -> Sub <$> stainReg rd <*> updateReg ri <*> updateReg rj
+    (Mul rd ri rj) -> Mul <$> stainReg rd <*> updateReg ri <*> updateReg rj
+    (Div rd ri rj) -> Div <$> stainReg rd <*> updateReg ri <*> updateReg rj
+    (And rd ri rj) -> And <$> stainReg rd <*> updateReg ri <*> updateReg rj
+    (Or  rd ri rj) -> Or  <$> stainReg rd <*> updateReg ri <*> updateReg rj
+    (Not rd ri   ) -> Not <$> stainReg rd <*> updateReg ri
+    (Jmp    ri   ) -> Jmp <$  stainReg pc <*> updateReg ri
+    (Bez    ri  o) -> Bez <$  stainReg pc <*> updateReg ri <*> return o
+    (Ceq rd ri rj) -> Ceq <$> stainReg rd <*> updateReg ri <*> updateReg rj
+    (Cgt rd ri rj) -> Cgt <$> stainReg rd <*> updateReg ri <*> updateReg rj
+    (Ldc rd     o) -> Ldc <$> stainReg rd                  <*> return o
+    (Ldm rd ri   ) -> Ldm <$> stainReg rd <*> updateReg ri
+    (Stm    ri rj) -> Stm <$>                 updateReg ri <*> updateReg rj
+    (Halt        ) -> return Halt
   where stainReg :: Register -> ProcessorState Register
         stainReg  r = do regFile.regFlag r += 1
                          return r
@@ -128,7 +130,8 @@ fillInsts i bypass = case i of
 rsEntryToInst :: ReservationStationEntry -> [ (Int, Int32) ]
               -> ProcessorState (Int, InstructionVal, [ Register ])
 rsEntryToInst (inst_id, Instruction c i co, qi, qj, vi, vj) bypass
-  = return (inst_id, Instruction c i' co, instOperands i)
+  = do simData.issInsts += 1
+       return (inst_id, Instruction c i' co, instOperands i)
   where vi' = case qi of
                 (Just key  ) -> fromJust . lookup key $ bypass
                 (Nothing   ) -> vi

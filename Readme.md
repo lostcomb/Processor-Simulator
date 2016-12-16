@@ -31,8 +31,6 @@ Run `stack exec aca-processor-simulator -- options`.
 * Try a similar program to above but with sets of dependent instructions => out
   of order execution should make this program perform as fast as if there were
   no dependencies.
-* Try a program that uses more or less only one register vs. the same program
-  but using all of the registers => register renaming should fix this.
 
 # ISA Reference: #
 

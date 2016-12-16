@@ -31,8 +31,12 @@ interpret' step (Registers ) = printRegisters
 interpret' step (Memory    ) = printMemory
 interpret' step (Stats     ) = do simData <- use $ simData
                                   liftIO . putStrLn . toString $ simData
+                                  liftIO . putStrLn $  "Branch prediction rate (hits / predictions): "
+                                                    ++ printf "%.2f" (branchPredictionRate simData)
                                   liftIO . putStrLn $  "Issue rate (instructions / cycle): "
                                                     ++ printf "%.1f" (issueRate simData)
+                                  liftIO . putStrLn $  "Writeback rate (instructions / cycle): "
+                                                    ++ printf "%.1f" (writebackRate simData)
 interpret' step (FetchI    ) = do liftIO . putStrLn $ "Fetch Stage:"
                                   stall   <- use $ fetchStage.stalled
                                   liftIO . putStrLn $ "  Stalled: " ++ show stall
@@ -62,7 +66,9 @@ interpret' step (ExecuteI  ) = do liftIO . putStrLn $ "Execute Stage:"
                                   liftIO . putStrLn $ "  Stalled: " ++ show stall
                                   bypass  <- use $ executeStage.bypassValues
                                   liftIO . putStrLn $ "  Bypass Values: " ++ show bypass
-                                  input  <- use $ exeInputLatches
+                                  sp      <- use $ executeStage.subPipeline
+                                  liftIO . putStrLn $ "  Sub Pipeline: " ++ show sp
+                                  input   <- use $ exeInputLatches
                                   liftIO . putStrLn $ "  Input: " ++ show input
                                   output  <- use $ wrbInputLatches
                                   liftIO . putStrLn $ "  Output: " ++ show output

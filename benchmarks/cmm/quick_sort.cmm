@@ -28,8 +28,8 @@ int partition (int list[], int p, int r) {
   int tmp;
   int x = list[r];
   int i = p - 1;
-  for (int j = p; j < r - 1; j = j + 1) {
-    if (list[j] <= x) {
+  for (int j = p; j < r; j = j + 1) {
+    if (list[j] > x) {
       i = i + 1;
       tmp = list[i];
       list[i] = list[j];
