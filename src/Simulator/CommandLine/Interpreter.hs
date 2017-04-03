@@ -1,3 +1,19 @@
+{-
+This file is part of aca-processor-simulator.
+
+aca-processor-simulator is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+aca-processor-simulator is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with aca-processor-simulator.  If not, see <http://www.gnu.org/licenses/>.
+-}
 module Simulator.CommandLine.Interpreter
   ( interpret
   ) where
@@ -130,6 +146,62 @@ interpret' step (ROB       ) = do rob <- use $ robStage.buffer
                                   rss <- use reservationStations
                                   liftIO . putStrLn . unlines . map show $ rss
 interpret' step (Quit      ) = liftIO exitSuccess
+interpret' step (ShowW     ) = liftIO . putStrLn $ warrantyNotice
+interpret' step (ShowC     ) = do liftIO . putStrLn $ verbatimNotice
+                                  liftIO . putStrLn $ ""
+                                  liftIO . putStrLn $ modifiedNotice
+
+warrantyNotice :: String
+warrantyNotice =  "  THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY\n"
+               ++ "APPLICABLE LAW.  EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT\n"
+               ++ "HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM \"AS IS\" WITHOUT WARRANTY\n"
+               ++ "OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO,\n"
+               ++ "THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR\n"
+               ++ "PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM\n"
+               ++ "IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF\n"
+               ++ "ALL NECESSARY SERVICING, REPAIR OR CORRECTION."
+
+verbatimNotice :: String
+verbatimNotice =  "  You may convey verbatim copies of the Program's source code as you\n"
+               ++ "receive it, in any medium, provided that you conspicuously and\n"
+               ++ "appropriately publish on each copy an appropriate copyright notice;\n"
+               ++ "keep intact all notices stating that this License and any\n"
+               ++ "non-permissive terms added in accord with section 7 apply to the code;\n"
+               ++ "keep intact all notices of the absence of any warranty; and give all\n"
+               ++ "recipients a copy of this License along with the Program.\n\n"
+               ++ "  You may charge any price or no price for each copy that you convey,\n"
+               ++ "and you may offer support or warranty protection for a fee."
+
+modifiedNotice :: String
+modifiedNotice =  "  You may convey a work based on the Program, or the modifications to\n"
+               ++ "produce it from the Program, in the form of source code under the\n"
+               ++ "terms of section 4, provided that you also meet all of these conditions:\n\n"
+               ++ "    a) The work must carry prominent notices stating that you modified\n"
+               ++ "    it, and giving a relevant date.\n\n"
+               ++ "    b) The work must carry prominent notices stating that it is\n"
+               ++ "    released under this License and any conditions added under section\n"
+               ++ "    7.  This requirement modifies the requirement in section 4 to\n"
+               ++ "    \"keep intact all notices\".\n\n"
+               ++ "    c) You must license the entire work, as a whole, under this\n"
+               ++ "    License to anyone who comes into possession of a copy.  This\n"
+               ++ "    License will therefore apply, along with any applicable section 7\n"
+               ++ "    additional terms, to the whole of the work, and all its parts,\n"
+               ++ "    regardless of how they are packaged.  This License gives no\n"
+               ++ "    permission to license the work in any other way, but it does not\n"
+               ++ "    invalidate such permission if you have separately received it.\n\n"
+               ++ "    d) If the work has interactive user interfaces, each must display\n"
+               ++ "    Appropriate Legal Notices; however, if the Program has interactive\n"
+               ++ "    interfaces that do not display Appropriate Legal Notices, your\n"
+               ++ "    work need not make them do so.\n\n"
+               ++ "  A compilation of a covered work with other separate and independent\n"
+               ++ "works, which are not by their nature extensions of the covered work,\n"
+               ++ "and which are not combined with it such as to form a larger program,\n"
+               ++ "in or on a volume of a storage or distribution medium, is called an\n"
+               ++ "\"aggregate\" if the compilation and its resulting copyright are not\n"
+               ++ "used to limit the access or legal rights of the compilation's users\n"
+               ++ "beyond what the individual works permit.  Inclusion of a covered work\n"
+               ++ "in an aggregate does not cause this License to apply to the other\n"
+               ++ "parts of the aggregate."
 
 setInstCycles :: String -> Int -> ProcessorState ()
 setInstCycles inst c

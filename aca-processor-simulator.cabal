@@ -2,7 +2,7 @@ name:                aca-processor-simulator
 version:             0.1.0.0
 description:         Please see Readme.md
 homepage:            https://bitbucket.org/Lostcomb/aca-processor-simulator/src
-license:             BSD3
+license:             GPL-3
 license-file:        LICENSE
 author:              Julian Loscombe
 maintainer:          jl14910@my.bristol.ac.uk

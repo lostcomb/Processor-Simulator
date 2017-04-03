@@ -1,3 +1,19 @@
+{-
+This file is part of aca-processor-simulator.
+
+aca-processor-simulator is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+aca-processor-simulator is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with aca-processor-simulator.  If not, see <http://www.gnu.org/licenses/>.
+-}
 -- |This module defines a parser for the commands to be used by the simulator
 --  command line.
 module Simulator.CommandLine.Parser
@@ -24,7 +40,8 @@ languageDef = emptyDef
                     , "writebacki", "set"
                     , "get"       , "latches"
                     , "caches"    , "rob"
-                    , "quit"
+                    , "quit"      , "show w"
+                    , "show c"
                     ]
   }
 
@@ -64,6 +81,8 @@ commandsParser = commandParser `sepBy` semi lexer
 --        |   'caches'
 --        |   'rob'
 --        |   'quit'
+--        |   'show w'
+--        |   'show c'
 commandParser :: Parser Command
 commandParser =   (Step       <$  reserved lexer "step"
                               <*> option 1 (fromIntegral <$> integer lexer))
@@ -86,3 +105,5 @@ commandParser =   (Step       <$  reserved lexer "step"
               <|> (Caches     <$  reserved lexer "caches"                  )
               <|> (ROB        <$  reserved lexer "rob"                     )
               <|> (Quit       <$  reserved lexer "quit"                    )
+              <|> (ShowW      <$  reserved lexer "show w"                  )
+              <|> (ShowC      <$  reserved lexer "show c"                  )
