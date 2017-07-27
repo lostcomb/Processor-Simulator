@@ -14,7 +14,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with aca-processor-simulator.  If not, see <http://www.gnu.org/licenses/>.
 -}
--- |This module generates the code from the syntax tree. It assumes there is
+-- |This module generates the code from the syntax tree. It assumes there are
 --  an infinite number of registers available.
 module Compiler.Generator
   ( generate
