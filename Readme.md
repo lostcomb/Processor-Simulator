@@ -2,7 +2,7 @@
 
 ## Simulated Processor Architecture: ##
 
-![Simulated Processor Architecture](https://lostcomb.bitbucket.io/processor_block_diagram.png "Simulated Processor Architecture")
+![Simulated Processor Architecture](https://raw.githubusercontent.com/lostcomb/Processor-Simulator/master/processor_block_diagram.png)
 
 ## Compile instructions: ##
 
